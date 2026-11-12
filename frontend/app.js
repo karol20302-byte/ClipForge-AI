@@ -135,7 +135,7 @@ async function importMediaUrl() {
   if (!url) { setStatus("#media-status", "Paste a video URL first."); return; }
   button.disabled = true;
   button.textContent = "Starting…";
-  setStatus("#media-status", "Connecting to your video source…");
+  setStatus("#media-status", "Checking the authorized direct video-file link…");
   try {
     const result = await api("/api/videos/import-url", {
       method: "POST",
@@ -148,13 +148,13 @@ async function importMediaUrl() {
     $("#transcribe-button").disabled = false;
     $("#detect-button").disabled = true;
     setStatus("#upload-status", "Video imported. Ready to transcribe.");
-    setStatus("#media-status", "Source ready. Transcribe audio, then detect highlights.");
+    setStatus("#media-status", "Source imported into ClipForge. Next, transcribe audio and detect highlights.");
     toast("Video imported successfully");
   } catch (error) {
     setStatus("#media-status", error.message);
   } finally {
     button.disabled = false;
-    button.textContent = "Start AI clipping";
+    button.textContent = "Import & prepare";
   }
 }
 async function transcribeVideo() {
