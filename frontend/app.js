@@ -146,7 +146,14 @@ async function detectClips() {
   $("#detect-button").disabled = true;
   setStatus("#process-status", "Finding and ranking promising moments…");
   try {
-    const result = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/suggest-clips", { method: "POST" });
+    const minDuration = Number($("#min-duration").value);
+    const maxDuration = Number($("#max-duration").value);
+    const aspect = $("#clip-ratio").value;
+    if (!Number.isFinite(minDuration) || !Number.isFinite(maxDuration) || minDuration < 10 || maxDuration < minDuration || maxDuration > 180) {
+      throw new Error("Choose durations from 10 to 180 seconds, with maximum at least the minimum.");
+    }
+    const settings = new URLSearchParams({ min_seconds: String(minDuration), max_seconds: String(maxDuration), aspect });
+    const result = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/suggest-clips?" + settings.toString(), { method: "POST" });
     state.clips = result.candidates || [];
     renderClips();
     setStatus("#process-status", "Detection method: " + (result.detection_method || "automatic") + ". Candidates are automatically approved.");
@@ -183,6 +190,7 @@ function renderClips() {
     const actions = document.createElement("div"); actions.className = "clip-actions";
     const aspect = document.createElement("select"); aspect.setAttribute("aria-label", "Clip aspect ratio");
     [["9:16","Vertical 9:16"],["1:1","Square 1:1"],["16:9","Landscape 16:9"]].forEach(([value,label]) => { const option=document.createElement("option"); option.value=value; option.textContent=label; aspect.append(option); });
+    aspect.value = clip.aspect || $("#clip-ratio").value;
     const render = document.createElement("button"); render.className = "button button-primary"; render.textContent = "Render clip";
     render.addEventListener("click", () => renderClip(clip, aspect.value, render));
     actions.append(aspect, render);
