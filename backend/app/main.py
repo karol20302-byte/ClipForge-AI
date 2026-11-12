@@ -24,7 +24,10 @@ for folder in (UPLOAD_DIR, OUTPUT_DIR):
 app = FastAPI(title="ClipForge AI API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CLIPFORGE_ALLOWED_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=os.getenv(
+        "CLIPFORGE_ALLOWED_ORIGINS",
+        "https://clipforge-ai-db2.pages.dev",
+    ).split(","),
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
