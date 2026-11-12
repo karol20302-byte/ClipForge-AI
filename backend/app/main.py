@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import os
 import shutil
 import subprocess
@@ -8,11 +9,9 @@ from pathlib import Path
 from typing import Literal
 
 import whisper
-
-from .highlight_detector import detect_highlights
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 DATA_DIR = Path(os.getenv("CLIPFORGE_DATA_DIR", "./data")).resolve()
@@ -21,7 +20,10 @@ OUTPUT_DIR = DATA_DIR / "renders"
 for folder in (UPLOAD_DIR, OUTPUT_DIR):
     folder.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="ClipForge AI API", version="0.1.0")
+MAX_UPLOAD_BYTES = int(os.getenv("CLIPFORGE_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
+API_KEY = os.getenv("CLIPFORGE_API_KEY", "").strip()
+
+app = FastAPI(title="ClipForge AI API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv(
@@ -30,7 +32,7 @@ app.add_middleware(
     ).split(","),
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
 
 # Demo-only in-memory state. Replace with PostgreSQL before production.
@@ -38,6 +40,19 @@ jobs: dict[str, dict] = {}
 clip_candidates: dict[str, dict] = {}
 whisper_model = None
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
+
+
+@app.middleware("http")
+async def protect_api_and_add_headers(request: Request, call_next):
+    if request.url.path.startswith("/api/") and API_KEY:
+        supplied_key = request.headers.get("x-api-key", "")
+        if not hmac.compare_digest(supplied_key, API_KEY):
+            return JSONResponse(status_code=401, content={"detail": "Missing or invalid API key"})
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
 
 
 class ApprovalRequest(BaseModel):
@@ -60,21 +75,39 @@ async def upload_video(file: UploadFile = File(...)):
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(415, "Unsupported video format")
+
+    content_length = file.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB upload limit")
+
     video_id = str(uuid.uuid4())
     destination = UPLOAD_DIR / f"{video_id}{suffix}"
+    total = 0
     try:
         with destination.open("wb") as out:
-            shutil.copyfileobj(file.file, out)
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB upload limit")
+                out.write(chunk)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
     finally:
         await file.close()
+
+    if total == 0:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(400, "Uploaded file is empty")
+
     jobs[video_id] = {
         "id": video_id,
-        "filename": file.filename,
+        "filename": Path(file.filename or "video").name,
         "path": str(destination),
         "status": "uploaded",
         "transcript": None,
     }
-    return {"id": video_id, "filename": file.filename, "status": "uploaded"}
+    return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "uploaded"}
 
 
 @app.get("/api/videos")
@@ -115,8 +148,7 @@ def suggest_clips(video_id: str, min_seconds: float = 15, max_seconds: float = 6
     if min_seconds <= 0 or max_seconds < min_seconds or max_seconds > 180:
         raise HTTPException(422, "Invalid clip duration limits")
 
-    segments = job["transcript"]
-    ranked, detection_method = detect_highlights(segments, min_seconds, max_seconds)
+    ranked, detection_method = detect_highlights(job["transcript"], min_seconds, max_seconds)
     candidates = []
     for item in ranked:
         candidate_id = str(uuid.uuid4())
