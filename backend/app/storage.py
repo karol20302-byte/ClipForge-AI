@@ -96,7 +96,7 @@ def put_media(local_path: str | Path, key: str) -> str:
 
 
 def get_media(location: str, destination: str | Path) -> Path:
-    if not location.startswith("stored://")
+    if not location.startswith("stored://"):
         return Path(location)
     client = stored_client()
     if client is None:
