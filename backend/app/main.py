@@ -224,7 +224,7 @@ def transcribe(video_id: str):
 
 
 @app.post("/api/videos/{video_id}/suggest-clips")
-def suggest_clips(video_id: str, min_seconds: float = 15, max_seconds: float = 60):
+def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 60):
     job = jobs.get(video_id)
     if not job:
         raise HTTPException(404, "Video not found")
