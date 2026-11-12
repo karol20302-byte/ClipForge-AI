@@ -1,5 +1,6 @@
+const DEFAULT_API = "https://clipforge-backend-i21j.onrender.com";
 const $ = (selector) => document.querySelector(selector);
-const state = { api: localStorage.getItem("clipforge-api") || "http://localhost:8000", videoId: null, clips: [] };
+const state = { api: localStorage.getItem("clipforge-api") || DEFAULT_API, videoId: null, clips: [] };
 
 $("#api-url").value = state.api;
 $("#save-api").addEventListener("click", () => {
