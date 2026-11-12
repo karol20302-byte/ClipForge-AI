@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101114">
+  <meta name="description" content="ClipForge AI mobile video clipping studio">
+  <title>ClipForge AI</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="ClipForge home"><span class="brand-mark">C</span><span>CLIPFORGE<span class="brand-muted"> / AI</span></span></a>
+      <span class="status-pill"><i></i> WORKSPACE</span>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">YOUR SHORT-FORM STUDIO</p>
+      <h1>Turn long videos<br><span>into standout clips.</span></h1>
+      <p class="hero-copy">Upload a video. Let AI find the moments worth sharing.</p>
+    </section>
+
+    <section class="panel connection-panel">
+      <label for="api-url">Backend API address</label>
+      <div class="api-row">
+        <input id="api-url" type="url" inputmode="url" placeholder="https://your-api.example.com">
+        <button id="save-api" class="button button-quiet">Save</button>
+      </div>
+      <p class="hint">Use your deployed API URL, or http://localhost:8000 for local testing.</p>
+    </section>
+
+    <section class="panel upload-panel">
+      <div class="section-heading"><div><p class="eyebrow">STEP 01</p><h2>Upload source</h2></div><span class="step-number">01</span></div>
+      <label class="dropzone" for="video-file">
+        <span class="upload-icon">↑</span>
+        <strong id="file-label">Choose a video</strong>
+        <span>MP4 · MOV · MKV · WEBM</span>
+        <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.m4v">
+      </label>
+      <button id="upload-button" class="button button-primary" disabled>Upload video <span>↗</span></button>
+      <p id="upload-status" class="status-text" role="status">Your video stays on the configured backend storage.</p>
+    </section>
+
+    <section class="panel workflow-panel">
+      <div class="section-heading"><div><p class="eyebrow">STEP 02</p><h2>Find highlights</h2></div><span class="step-number">02</span></div>
+      <div class="video-summary" id="video-summary"><span class="summary-dot"></span><span>No video uploaded yet</span></div>
+      <div class="button-stack">
+        <button id="transcribe-button" class="button button-secondary" disabled>① Transcribe audio</button>
+        <button id="detect-button" class="button button-primary" disabled>② Detect & approve clips <span>✦</span></button>
+      </div>
+      <p id="process-status" class="status-text" role="status">AI-ranked candidates are automatically approved for rendering.</p>
+    </section>
+
+    <section class="clips-section">
+      <div class="section-heading"><div><p class="eyebrow">STEP 03</p><h2>Your clips</h2></div><span id="clip-count" class="count-pill">0 clips</span></div>
+      <div id="clips-list" class="clips-list">
+        <div class="empty-state"><span>✳</span><strong>Your highlights will appear here</strong><p>Upload a video and run highlight detection to get started.</p></div>
+      </div>
+    </section>
+
+    <footer><span>CLIPFORGE AI</span><span>BUILT FOR THE NEXT FRAME.</span></footer>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
