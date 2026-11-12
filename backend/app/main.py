@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Literal
 
 import whisper
+
+from .highlight_detector import detect_highlights
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -109,39 +111,22 @@ def suggest_clips(video_id: str, min_seconds: float = 15, max_seconds: float = 6
     if min_seconds <= 0 or max_seconds < min_seconds or max_seconds > 180:
         raise HTTPException(422, "Invalid clip duration limits")
 
-    # Baseline candidate grouping, not semantic highlight ranking.
     segments = job["transcript"]
+    ranked, detection_method = detect_highlights(segments, min_seconds, max_seconds)
     candidates = []
-    i = 0
-    while i < len(segments):
-        start = segments[i]["start"]
-        end = start
-        text_parts = []
-        j = i
-        while j < len(segments) and (segments[j]["end"] - start) <= max_seconds:
-            end = segments[j]["end"]
-            text_parts.append(segments[j]["text"])
-            j += 1
-            if end - start >= min_seconds:
-                break
-        if end - start >= min_seconds:
-            candidate_id = str(uuid.uuid4())
-            candidate = {
-                "id": candidate_id,
-                "video_id": video_id,
-                "start": start,
-                "end": end,
-                "transcript_excerpt": " ".join(text_parts),
-                "status": "approved",
-                "approval_method": "automatic",
-            }
-            clip_candidates[candidate_id] = candidate
-            candidates.append(candidate)
-            i = j
-        else:
-            i += 1
+    for item in ranked:
+        candidate_id = str(uuid.uuid4())
+        candidate = {
+            "id": candidate_id,
+            "video_id": video_id,
+            **item,
+            "status": "approved",
+            "approval_method": "automatic",
+        }
+        clip_candidates[candidate_id] = candidate
+        candidates.append(candidate)
     job["status"] = "clips_approved"
-    return {"video_id": video_id, "candidates": candidates}
+    return {"video_id": video_id, "detection_method": detection_method, "candidates": candidates}
 
 
 @app.get("/api/clips")
