@@ -56,7 +56,7 @@ def d1(sql: str, params: list[str] | None = None) -> list[dict]:
 def init_storage() -> None:
     r2_values = (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME)
     r2_ready = all(r2_values)
-    if any(r2_values) and not d1_configured():
+    if any((R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME)) and not d1_configured():
         raise RuntimeError("R2 is configured without D1; configure both so media and metadata remain recoverable")
     if d1_configured() and not r2_ready:
         raise RuntimeError("D1 is configured but R2 is incomplete; configure both to enable durable media and metadata storage")
