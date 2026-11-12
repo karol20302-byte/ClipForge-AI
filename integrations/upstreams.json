@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "purpose": "Pinned upstream source references for ClipForge-AI integrations",
+  "upstreams": {
+    "hyperframes": {
+      "repository": "https://github.com/heygen-com/hyperframes.git",
+      "commit": "5a3e46235fe1f749006af6bacae01c684f2866ca",
+      "role": "Optional HTML/CSS motion-graphics composition and video rendering",
+      "runtime": "Node.js 22+ and FFmpeg"
+    },
+    "ffmpeg": {
+      "repository": "https://github.com/FFmpeg/FFmpeg.git",
+      "commit": "23c454005319dee4a5bcae5c370f75fdeb325230",
+      "role": "Media probing, trimming, scaling, subtitles and encoding",
+      "runtime": "FFmpeg executable available on PATH"
+    },
+    "whisper": {
+      "repository": "https://github.com/openai/whisper.git",
+      "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
+      "role": "Speech-to-text transcription and timestamps",
+      "runtime": "Python package openai-whisper"
+    },
+    "yt-dlp": {
+      "repository": "https://github.com/yt-dlp/yt-dlp.git",
+      "commit": "412e7f0a4b0588fe884a02b344ac66a06538475b",
+      "role": "Optional source importer for media the user owns or is authorized to download",
+      "runtime": "Python package yt-dlp; FFmpeg recommended",
+      "enabled_by_default": false
+    }
+  }
+}
