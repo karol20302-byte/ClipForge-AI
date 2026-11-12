@@ -45,6 +45,12 @@
         <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.m4v">
       </label>
       <button id="upload-button" class="button button-primary" disabled>Upload video <span>↗</span></button>
+      <div id="upload-progress" class="upload-progress" hidden aria-live="polite">
+        <div class="upload-progress-head"><div><span class="live-dot"></span><span id="upload-phase">PREPARING TRANSFER</span></div><strong id="upload-percent">0%</strong></div>
+        <div class="upload-track"><div id="upload-fill" class="upload-fill"></div><div class="upload-scan"></div></div>
+        <div class="upload-stats"><span id="upload-bytes">0 MB / 0 MB</span><span id="upload-speed">Waiting for connection</span></div>
+        <div class="upload-stats upload-stats-bottom"><span id="upload-eta">Calculating time…</span><span>SECURE TRANSFER</span></div>
+      </div>
       <p id="upload-status" class="status-text" role="status">Your video stays on the configured backend storage.</p>
     </section>
 
