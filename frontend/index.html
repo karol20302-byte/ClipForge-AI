@@ -45,6 +45,15 @@
         <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.m4v">
       </label>
       <button id="upload-button" class="button button-primary" disabled>Upload video <span>↗</span></button>
+      <div class="import-divider"><span>OR IMPORT FROM A LINK</span></div>
+      <div class="source-import">
+        <label for="youtube-url">YouTube video link</label>
+        <div class="api-row"><input id="youtube-url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=..."><button id="youtube-reference" class="button button-quiet">Use link</button></div>
+        <p id="youtube-status" class="hint">For videos you own or have permission to edit: use YouTube Studio to download your source, then upload it above. A watch link is saved as a reference only; it is not downloaded.</p>
+        <label for="media-url">Direct video file URL</label>
+        <div class="api-row"><input id="media-url" type="url" inputmode="url" placeholder="https://example.com/video.mp4"><button id="media-import" class="button button-quiet">Import</button></div>
+        <p id="media-status" class="hint">Imports a publicly accessible direct MP4/MOV/WEBM/MKV file over HTTPS. Use only media you own or are authorized to use. Redirects and private-network URLs are blocked.</p>
+      </div>
       <div id="upload-progress" class="upload-progress" hidden aria-live="polite">
         <div class="upload-progress-head"><div><span class="live-dot"></span><span id="upload-phase">PREPARING TRANSFER</span></div><strong id="upload-percent">0%</strong></div>
         <div class="upload-track"><div id="upload-fill" class="upload-fill"></div><div class="upload-scan"></div></div>
