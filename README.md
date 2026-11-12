@@ -58,17 +58,19 @@ Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored. 
 Initial backend scaffold with automatic candidate approval and optional LLM-based transcript highlight ranking. The detector ranks transcript windows; it does not yet analyze visual scenes, audio energy, or audience-retention analytics. Cloud deployment and production hardening remain ongoing. Optional durable metadata and media storage are implemented through Cloudflare D1 and R2; they must be provisioned and configured on the backend before they are active. The initial mobile dashboard is available in `frontend/`.
 
 
-## Durable Cloudflare storage (optional)
+## Durable cloud storage (optional)
 
-For durable deployments, configure both Cloudflare D1 (metadata) and R2 (media objects). The backend restores job and clip records from D1 at startup and stores source videos and rendered MP4 files in R2. D1 stores JSON records only; video bytes remain in R2.
+For durable deployments, configure Cloudflare D1 for metadata and Stored for media objects. The backend restores job and clip records from D1 at startup and stores source videos and rendered MP4 files in Stored. D1 stores JSON records only; video bytes remain in object storage.
+
+Stored currently advertises a 5 GB free tier with no credit card required. Its S3-compatible endpoint is `https://s3.stored.cloud`, region `us-east-1`; use path-style addressing. Review the provider's current limits before uploading large media.
 
 Set these Render environment variables (never commit their values):
 
 - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account ID (also used by the existing Workers AI transcription integration).
 - `CLOUDFLARE_D1_DATABASE_ID`: D1 database UUID.
 - `CLOUDFLARE_D1_API_TOKEN`: API token with D1 Read and D1 Write permissions.
-- `R2_ACCOUNT_ID`: Cloudflare account ID.
-- `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`: R2 S3 credentials restricted to the ClipForge bucket.
-- `R2_BUCKET_NAME`: exact R2 bucket name.
+- `STORED_ENDPOINT`: `https://s3.stored.cloud`.
+- `STORED_ACCESS_KEY_ID` and `STORED_SECRET_ACCESS_KEY`: Stored S3 credentials.
+- `STORED_BUCKET_NAME`: exact bucket name created in Stored.
 
-Create the D1 tables automatically on backend startup. The backend must have both D1 and R2 configured; it intentionally refuses a partial cloud-storage configuration to avoid persisting metadata while leaving media on ephemeral disk. Existing in-memory/local-disk behavior remains available when none of the cloud-storage variables are configured. Existing jobs created before cloud storage is enabled are not migrated automatically; upload those source videos again after setup.
+Create the D1 tables automatically on backend startup. The backend must have both D1 and Stored configured; it intentionally refuses a partial cloud-storage configuration to avoid persisting metadata while leaving media on ephemeral disk. Existing in-memory/local-disk behavior remains available when no cloud-storage variables are configured. Existing jobs created before cloud storage is enabled are not migrated automatically; upload those source videos again after setup.
