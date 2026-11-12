@@ -4,7 +4,8 @@ AI-assisted short-form video clipping studio with automatic clip-candidate appro
 
 ## Current starter scope
 
-- FastAPI backend for uploading source videos and listing clip candidates.
+- FastAPI backend for uploading source videos, listing clip candidates, rendering clips, and downloading MP4 exports.
+- Mobile-first static dashboard in `frontend/` for the upload-to-export workflow.
 - Local Whisper transcription and timestamped segments.
 - Transcript-window highlight scoring, ranked by an optional OpenAI model when `OPENAI_API_KEY` is configured; otherwise a local heuristic ranks candidates.
 - FFmpeg-based vertical MP4 rendering.
@@ -34,7 +35,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000/docs.
+Open http://localhost:8000/docs for the API. Serve the `frontend/` directory as a static site and enter the API address in the dashboard.
 
 Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored. To enable LLM-based highlight ranking, set `OPENAI_API_KEY` on the backend (never commit it); optionally set `OPENAI_MODEL`, which defaults to `gpt-4o-mini`. Without a key, local heuristic scoring is used.
 
@@ -54,4 +55,4 @@ Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored. 
 
 ## Status
 
-Initial backend scaffold with automatic candidate approval and optional LLM-based transcript highlight ranking. The detector ranks transcript windows; it does not yet analyze visual scenes, audio energy, or audience-retention analytics. Cloud deployment, authentication, persistent database, background workers, and the web review interface remain to be implemented.
+Initial backend scaffold with automatic candidate approval and optional LLM-based transcript highlight ranking. The detector ranks transcript windows; it does not yet analyze visual scenes, audio energy, or audience-retention analytics. Cloud deployment, authentication, persistent database, background workers, and production hardening remain to be implemented. The initial mobile dashboard is available in `frontend/`.
