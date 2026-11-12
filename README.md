@@ -55,7 +55,7 @@ Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored. 
 
 ## Status
 
-Initial backend scaffold with automatic candidate approval and optional LLM-based transcript highlight ranking. The detector ranks transcript windows; it does not yet analyze visual scenes, audio energy, or audience-retention analytics. Cloud deployment, authentication, persistent database, background workers, and production hardening remain to be implemented. The initial mobile dashboard is available in `frontend/`.
+Initial backend scaffold with automatic candidate approval and optional LLM-based transcript highlight ranking. The detector ranks transcript windows; it does not yet analyze visual scenes, audio energy, or audience-retention analytics. Cloud deployment and production hardening remain ongoing. Optional durable metadata and media storage are implemented through Cloudflare D1 and R2; they must be provisioned and configured on the backend before they are active. The initial mobile dashboard is available in `frontend/`.
 
 
 ## Durable Cloudflare storage (optional)
