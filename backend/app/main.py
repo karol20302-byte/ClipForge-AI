@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hmac
 import ipaddress
 import json
@@ -73,6 +74,11 @@ class RenderRequest(BaseModel):
 
 class ImportUrlRequest(BaseModel):
     url: str
+
+
+class TranscriptionRequest(BaseModel):
+    language: Literal["en", "ml", "hi", "ta", "kn", "te", "bn", "mr", "ur", "es", "fr", "de", "ar", "pt", "ru", "ja", "ko", "zh", "auto"] = "auto"
+    task: Literal["transcribe", "translate"] = "transcribe"
 
 
 @app.get("/health")
@@ -231,7 +237,7 @@ def _segments_from_vtt(vtt: str) -> list[dict]:
 
 
 @app.post("/api/videos/{video_id}/transcribe")
-def transcribe(video_id: str):
+def transcribe(video_id: str, options: TranscriptionRequest = TranscriptionRequest()):
     job = jobs.get(video_id)
     if not job:
         raise HTTPException(404, "Video not found")
@@ -258,14 +264,21 @@ def transcribe(video_id: str):
 
         endpoint = (
             f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
-            "/ai/run/@cf/openai/whisper"
+            "/ai/run/@cf/openai/whisper-large-v3-turbo"
         )
+        model_input = {
+            "audio": base64.b64encode(audio_bytes).decode("ascii"),
+            "task": options.task,
+            "vad_filter": True,
+        }
+        if options.language != "auto":
+            model_input["language"] = options.language
         request = urllib.request.Request(
             endpoint,
-            data=audio_bytes,
+            data=json.dumps(model_input).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {api_token}",
-                "Content-Type": "audio/mpeg",
+                "Content-Type": "application/json",
             },
             method="POST",
         )
@@ -274,7 +287,15 @@ def transcribe(video_id: str):
         result = payload.get("result", payload)
         transcript_text = str(result.get("text", "")).strip()
         vtt = str(result.get("vtt", ""))
+        info = result.get("transcription_info", {}) or {}
+        detected_language = info.get("language") or result.get("language")
         segments = _segments_from_vtt(vtt)
+        if not segments and isinstance(result.get("segments"), list):
+            segments = [
+                {"start": float(item.get("start", 0)), "end": float(item.get("end", 0)),
+                 "text": str(item.get("text", "")).strip()}
+                for item in result["segments"] if isinstance(item, dict) and item.get("text")
+            ]
         if not segments and transcript_text:
             segments = [{"start": 0.0, "end": 0.0, "text": transcript_text}]
         if not transcript_text:
@@ -297,7 +318,15 @@ def transcribe(video_id: str):
 
     job["transcript"] = segments
     job["status"] = "transcribed"
-    return {"video_id": video_id, "language": None, "text": transcript_text, "segments": segments}
+    job["transcription_language"] = detected_language or options.language
+    job["transcription_task"] = options.task
+    return {
+        "video_id": video_id,
+        "language": detected_language or (None if options.language == "auto" else options.language),
+        "task": options.task,
+        "text": transcript_text,
+        "segments": segments,
+    }
 
 
 @app.post("/api/videos/{video_id}/suggest-clips")
