@@ -1,12 +1,18 @@
 const DEFAULT_API = "https://clipforge-backend-i21j.onrender.com";
 const $ = (selector) => document.querySelector(selector);
-const state = { api: localStorage.getItem("clipforge-api") || DEFAULT_API, videoId: null, clips: [] };
+const state = { api: localStorage.getItem("clipforge-api") || DEFAULT_API, apiKey: localStorage.getItem("clipforge-key") || "", videoId: null, clips: [] };
 
 $("#api-url").value = state.api;
+$("#api-key").value = state.apiKey;
 $("#save-api").addEventListener("click", () => {
   state.api = $("#api-url").value.trim().replace(/\/$/, "");
   localStorage.setItem("clipforge-api", state.api);
   toast("Backend address saved");
+});
+$("#save-key").addEventListener("click", () => {
+  state.apiKey = $("#api-key").value.trim();
+  localStorage.setItem("clipforge-key", state.apiKey);
+  toast("API key saved in this browser");
 });
 $("#video-file").addEventListener("change", () => {
   const file = $("#video-file").files[0];
@@ -18,7 +24,9 @@ $("#transcribe-button").addEventListener("click", transcribeVideo);
 $("#detect-button").addEventListener("click", detectClips);
 
 async function api(path, options = {}) {
-  const response = await fetch(state.api + path, options);
+  const headers = new Headers(options.headers || {});
+  if (state.apiKey) headers.set("X-API-Key", state.apiKey);
+  const response = await fetch(state.api + path, { ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || body.message || "Request failed");
   return body;
@@ -122,14 +130,20 @@ async function renderClip(clip, aspect, button) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ start: clip.start, end: clip.end, aspect })
     });
+    const downloadResponse = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
+      headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
+    });
+    if (!downloadResponse.ok) throw new Error("Download failed. Check your API key and try again.");
+    const downloadUrl = URL.createObjectURL(await downloadResponse.blob());
     const link = document.createElement("a");
-    link.href = state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download";
+    link.href = downloadUrl;
     link.className = "button button-secondary";
     link.textContent = "Download MP4";
     link.style.textDecoration = "none";
     link.style.display = "grid";
     link.style.placeItems = "center";
     button.replaceWith(link);
+    link.addEventListener("click", () => setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000), { once: true });
     toast("Clip rendered");
   } catch (error) {
     button.disabled = false; button.textContent = "Retry render";
