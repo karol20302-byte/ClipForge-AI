@@ -224,7 +224,7 @@ def transcribe(video_id: str):
 
 
 @app.post("/api/videos/{video_id}/suggest-clips")
-def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 60):
+def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 60, aspect: Literal["9:16", "16:9", "1:1"] = "9:16"):
     job = jobs.get(video_id)
     if not job:
         raise HTTPException(404, "Video not found")
@@ -243,6 +243,7 @@ def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 6
             **item,
             "status": "approved",
             "approval_method": "automatic",
+            "aspect": aspect,
         }
         clip_candidates[candidate_id] = candidate
         candidates.append(candidate)
