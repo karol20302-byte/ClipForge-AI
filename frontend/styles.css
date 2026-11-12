@@ -32,3 +32,14 @@
 .settings-grid input,.settings-grid select{width:100%;min-height:40px}
 .ratio-setting{grid-column:1/-1}
 @media(min-width:600px){.ratio-setting{grid-column:auto}}
+
+
+/* Source URL import controls */
+.import-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:#77806d;font:9px 'DM Mono',monospace;letter-spacing:.12em}
+.import-divider:before,.import-divider:after{content:"";height:1px;flex:1;background:var(--line)}
+.source-import{display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#14161a}
+.source-import label{font-size:11px;font-weight:700;color:#c5c9d1}
+.source-import .api-row{margin-bottom:5px}
+.source-import .api-row input{width:100%;min-width:0}
+.source-import .hint{margin:0 0 8px}
+@media(max-width:420px){.source-import .api-row{flex-direction:column}.source-import .api-row .button{width:100%}}
