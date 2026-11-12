@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, HttpUrl
 
 from app.highlight_detector import detect_highlights
+from app.storage import get_media, init_storage, load_state, put_media, save_clip, save_job
 DATA_DIR = Path(os.getenv("CLIPFORGE_DATA_DIR", "./data")).resolve()
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = DATA_DIR / "renders"
@@ -43,9 +44,25 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-API-Key"],
 )
 
-# Demo-only in-memory state. Replace with PostgreSQL before production.
 jobs: dict[str, dict] = {}
 clip_candidates: dict[str, dict] = {}
+
+
+@app.on_event("startup")
+def restore_persistent_state():
+    init_storage()
+    restored_jobs, restored_clips = load_state()
+    jobs.update(restored_jobs)
+    clip_candidates.update(restored_clips)
+
+
+def local_video_path(job: dict) -> Path:
+    location = job["path"]
+    if location.startswith("r2://"):
+        suffix = Path(job.get("filename", "source.mp4")).suffix or ".mp4"
+        cached = UPLOAD_DIR / (job["id"] + "-cached" + suffix)
+        return get_media(location, cached)
+    return Path(location)
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
 
 
@@ -119,10 +136,11 @@ async def upload_video(file: UploadFile = File(...)):
     jobs[video_id] = {
         "id": video_id,
         "filename": Path(file.filename or "video").name,
-        "path": str(destination),
+        "path": put_media(destination, f"uploads/{video_id}{suffix}"),
         "status": "uploaded",
         "transcript": None,
     }
+    save_job(jobs[video_id])
     return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "uploaded"}
 
 
@@ -194,6 +212,7 @@ def import_video_url(request: ImportUrlRequest):
         "status": "uploaded",
         "transcript": None,
     }
+    save_job(jobs[video_id])
     return {"id": video_id, "filename": filename, "status": "uploaded"}
 
 
@@ -251,10 +270,11 @@ def transcribe(video_id: str, options: TranscriptionRequest = TranscriptionReque
 
     audio_path = None
     try:
+        source_video = local_video_path(job)
         with tempfile.NamedTemporaryFile(suffix=".mp3", dir=str(UPLOAD_DIR), delete=False) as audio_file:
             audio_path = Path(audio_file.name)
         extract = [
-            "ffmpeg", "-y", "-i", job["path"], "-vn", "-ac", "1",
+            "ffmpeg", "-y", "-i", str(source_video), "-vn", "-ac", "1",
             "-ar", "16000", "-b:a", "64k", "-f", "mp3", str(audio_path),
         ]
         subprocess.run(extract, check=True, capture_output=True, text=True, timeout=600)
@@ -320,6 +340,7 @@ def transcribe(video_id: str, options: TranscriptionRequest = TranscriptionReque
     job["status"] = "transcribed"
     job["transcription_language"] = detected_language or options.language
     job["transcription_task"] = options.task
+    save_job(job)
     return {
         "video_id": video_id,
         "language": detected_language or (None if options.language == "auto" else options.language),
@@ -352,8 +373,10 @@ def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 6
             "aspect": aspect,
         }
         clip_candidates[candidate_id] = candidate
+        save_clip(candidate)
         candidates.append(candidate)
     job["status"] = "clips_approved"
+    save_job(job)
     return {"video_id": video_id, "detection_method": detection_method, "candidates": candidates}
 
 
@@ -368,6 +391,7 @@ def approve_clip(clip_id: str, request: ApprovalRequest):
     if not candidate:
         raise HTTPException(404, "Clip candidate not found")
     candidate["status"] = "approved" if request.approved else "rejected"
+    save_clip(candidate)
     return candidate
 
 
@@ -377,6 +401,11 @@ def download_clip(clip_id: str):
     if not candidate:
         raise HTTPException(404, "Clip candidate not found")
     output = OUTPUT_DIR / f"{clip_id}.mp4"
+    if candidate.get("render_path"):
+        try:
+            output = get_media(candidate["render_path"], output)
+        except Exception as exc:
+            raise HTTPException(503, f"Could not retrieve clip from cloud storage: {exc}") from exc
     if not output.is_file():
         raise HTTPException(404, "Rendered clip not found")
     return FileResponse(output, media_type="video/mp4", filename=f"clipforge-{clip_id}.mp4")
@@ -391,11 +420,17 @@ def render_clip(clip_id: str, request: RenderRequest):
         raise HTTPException(409, "A clip must be approved before rendering")
     if request.start < 0 or request.end <= request.start or request.end - request.start > 180:
         raise HTTPException(422, "Invalid clip time range")
-    job = jobs[candidate["video_id"]]
+    job = jobs.get(candidate["video_id"])
+    if not job:
+        raise HTTPException(404, "Source video record not found")
+    try:
+        source_video = local_video_path(job)
+    except Exception as exc:
+        raise HTTPException(503, f"Could not retrieve source video from cloud storage: {exc}") from exc
     output = OUTPUT_DIR / f"{clip_id}.mp4"
     dimensions = {"9:16": "1080:1920", "16:9": "1920:1080", "1:1": "1080:1080"}
     command = [
-        "ffmpeg", "-y", "-ss", str(request.start), "-i", job["path"],
+        "ffmpeg", "-y", "-ss", str(request.start), "-i", str(source_video),
         "-t", str(request.end - request.start),
         "-vf", f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=increase,crop={dimensions[request.aspect]}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
@@ -407,4 +442,10 @@ def render_clip(clip_id: str, request: RenderRequest):
         raise HTTPException(504, "Rendering timed out") from exc
     except subprocess.CalledProcessError as exc:
         raise HTTPException(500, f"FFmpeg render failed: {exc.stderr[-1200:]}") from exc
+    try:
+        candidate["render_path"] = put_media(output, f"renders/{clip_id}.mp4")
+        candidate["rendered"] = True
+        save_clip(candidate)
+    except Exception as exc:
+        raise HTTPException(503, f"Clip rendered but cloud storage upload failed: {exc}") from exc
     return {"clip_id": clip_id, "status": "rendered", "file": str(output)}
