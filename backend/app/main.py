@@ -132,7 +132,7 @@ def _vtt_timestamp(value: str) -> float:
 
 def _segments_from_vtt(vtt: str) -> list[dict]:
     segments = []
-    for block in re.split(r"\\n\\s*\\n", vtt.replace("\\r", "").strip()):
+    for block in re.split(r"\n\s*\n", vtt.replace("\r", "").strip()):
         lines = [line.strip() for line in block.splitlines() if line.strip()]
         timing_index = next((i for i, line in enumerate(lines) if "-->" in line), None)
         if timing_index is None:
