@@ -56,3 +56,19 @@ Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored. 
 ## Status
 
 Initial backend scaffold with automatic candidate approval and optional LLM-based transcript highlight ranking. The detector ranks transcript windows; it does not yet analyze visual scenes, audio energy, or audience-retention analytics. Cloud deployment, authentication, persistent database, background workers, and production hardening remain to be implemented. The initial mobile dashboard is available in `frontend/`.
+
+
+## Durable Cloudflare storage (optional)
+
+For durable deployments, configure both Cloudflare D1 (metadata) and R2 (media objects). The backend restores job and clip records from D1 at startup and stores source videos and rendered MP4 files in R2. D1 stores JSON records only; video bytes remain in R2.
+
+Set these Render environment variables (never commit their values):
+
+- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account ID (also used by the existing Workers AI transcription integration).
+- `CLOUDFLARE_D1_DATABASE_ID`: D1 database UUID.
+- `CLOUDFLARE_D1_API_TOKEN`: API token with D1 Read and D1 Write permissions.
+- `R2_ACCOUNT_ID`: Cloudflare account ID.
+- `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`: R2 S3 credentials restricted to the ClipForge bucket.
+- `R2_BUCKET_NAME`: exact R2 bucket name.
+
+Create the D1 tables automatically on backend startup. The backend must have both D1 and R2 configured; it intentionally refuses a partial cloud-storage configuration to avoid persisting metadata while leaving media on ephemeral disk. Existing in-memory/local-disk behavior remains available when none of the cloud-storage variables are configured. Existing jobs created before cloud storage is enabled are not migrated automatically; upload those source videos again after setup.
