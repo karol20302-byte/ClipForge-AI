@@ -11,26 +11,26 @@ import boto3
 ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
 D1_DATABASE_ID = os.getenv("CLOUDFLARE_D1_DATABASE_ID", "").strip()
 D1_TOKEN = os.getenv("CLOUDFLARE_D1_API_TOKEN", "").strip()
-STORED_ENDPOINT = os.getenv("STORED_ENDPOINT", "https://s3.stored.cloud").strip()
-STORED_ACCESS_KEY_ID = os.getenv("STORED_ACCESS_KEY_ID", "").strip()
-STORED_SECRET_ACCESS_KEY = os.getenv("STORED_SECRET_ACCESS_KEY", "").strip()
-STORED_BUCKET_NAME = os.getenv("STORED_BUCKET_NAME", "").strip()
+B2_ENDPOINT = os.getenv("B2_ENDPOINT", "https://s3.us-west-004.backblazeb2.com").strip()
+B2_KEY_ID = os.getenv("B2_KEY_ID", "").strip()
+B2_APPLICATION_KEY = os.getenv("B2_APPLICATION_KEY", "").strip()
+B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME", "").strip()
 
 
 def d1_configured() -> bool:
     return all((ACCOUNT_ID, D1_DATABASE_ID, D1_TOKEN))
 
 
-def stored_client():
-    if not all((STORED_ENDPOINT, STORED_ACCESS_KEY_ID, STORED_SECRET_ACCESS_KEY, STORED_BUCKET_NAME)):
+def b2_client():
+    if not all((B2_ENDPOINT, B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME)):
         return None
     from botocore.config import Config
     return boto3.client(
         "s3",
-        endpoint_url=STORED_ENDPOINT,
-        aws_access_key_id=STORED_ACCESS_KEY_ID,
-        aws_secret_access_key=STORED_SECRET_ACCESS_KEY,
-        region_name="us-east-1",
+        endpoint_url=B2_ENDPOINT,
+        aws_access_key_id=B2_KEY_ID,
+        aws_secret_access_key=B2_APPLICATION_KEY,
+        region_name=os.getenv("B2_REGION", "us-west-004").strip(),
         config=Config(s3={"addressing_style": "path"}),
     )
 
@@ -56,12 +56,12 @@ def d1(sql: str, params: list[str] | None = None) -> list[dict]:
 
 
 def init_storage() -> None:
-    stored_values = (STORED_ENDPOINT, STORED_ACCESS_KEY_ID, STORED_SECRET_ACCESS_KEY, STORED_BUCKET_NAME)
-    stored_ready = all(stored_values)
-    if any((STORED_ACCESS_KEY_ID, STORED_SECRET_ACCESS_KEY, STORED_BUCKET_NAME)) and not d1_configured():
+    b2_values = (B2_ENDPOINT, B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME)
+    b2_ready = all(stored_values)
+    if any((B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME)) and not d1_configured():
         raise RuntimeError("Object storage is configured without D1; configure both so media and metadata remain recoverable")
     if d1_configured() and not stored_ready:
-        raise RuntimeError("D1 is configured but Stored object storage is incomplete; configure both to enable durable media and metadata storage")
+        raise RuntimeError("D1 is configured but Backblaze B2 object storage is incomplete; configure both to enable durable media and metadata storage")
     if d1_configured():
         d1("CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
         d1("CREATE TABLE IF NOT EXISTS clips (id TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
@@ -88,21 +88,21 @@ def save_clip(clip: dict) -> None:
 
 
 def put_media(local_path: str | Path, key: str) -> str:
-    client = stored_client()
+    client = b2_client()
     if client is None:
         return str(local_path)
-    client.upload_file(str(local_path), STORED_BUCKET_NAME, key)
-    return "stored://" + key
+    client.upload_file(str(local_path), B2_BUCKET_NAME, key)
+    return "b2://" + key
 
 
 def get_media(location: str, destination: str | Path) -> Path:
-    if not location.startswith("stored://"):
+    if not location.startswith("b2://"):
         return Path(location)
     client = stored_client()
     if client is None:
-        raise RuntimeError("Stored object storage is not configured")
-    key = location[len("stored://"):]
+        raise RuntimeError("Backblaze B2 object storage is not configured")
+    key = location[len("b2://"):]
     target = Path(destination)
     target.parent.mkdir(parents=True, exist_ok=True)
-    client.download_file(STORED_BUCKET_NAME, key, str(target))
+    client.download_file(B2_BUCKET_NAME, key, str(target))
     return target
