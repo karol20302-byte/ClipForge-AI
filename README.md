@@ -6,6 +6,7 @@ AI-assisted short-form video clipping studio with automatic clip-candidate appro
 
 - FastAPI backend for uploading source videos and listing clip candidates.
 - Local Whisper transcription and timestamped segments.
+- Transcript-window highlight scoring, ranked by an optional OpenAI model when `OPENAI_API_KEY` is configured; otherwise a local heuristic ranks candidates.
 - FFmpeg-based vertical MP4 rendering.
 - Automatically approve generated clip candidates so they can be rendered without a manual approval step.
 - Keep the approval endpoint available for manual rejection or status overrides.
@@ -35,7 +36,7 @@ uvicorn app.main:app --reload
 
 Open http://localhost:8000/docs.
 
-Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored.
+Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored. To enable LLM-based highlight ranking, set `OPENAI_API_KEY` on the backend (never commit it); optionally set `OPENAI_MODEL`, which defaults to `gpt-4o-mini`. Without a key, local heuristic scoring is used.
 
 ## Important
 
@@ -53,4 +54,4 @@ Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored.
 
 ## Status
 
-Initial backend scaffold with automatic candidate approval. Cloud deployment, authentication, persistent database, background workers, and the web review interface remain to be implemented.
+Initial backend scaffold with automatic candidate approval and optional LLM-based transcript highlight ranking. The detector ranks transcript windows; it does not yet analyze visual scenes, audio energy, or audience-retention analytics. Cloud deployment, authentication, persistent database, background workers, and the web review interface remain to be implemented.
