@@ -1,13 +1,14 @@
 # ClipForge-AI
 
-AI-assisted short-form video clipping studio with a human approval gate.
+AI-assisted short-form video clipping studio with automatic clip-candidate approval.
 
 ## Current starter scope
 
 - FastAPI backend for uploading source videos and listing clip candidates.
 - Local Whisper transcription and timestamped segments.
 - FFmpeg-based vertical MP4 rendering.
-- Human review before rendering/export.
+- Automatically approve generated clip candidates so they can be rendered without a manual approval step.
+- Keep the approval endpoint available for manual rejection or status overrides.
 - HyperFrames integration is an adapter boundary for branded motion graphics.
 
 ## Architecture
@@ -16,7 +17,7 @@ AI-assisted short-form video clipping studio with a human approval gate.
 Browser UI -> FastAPI -> job storage
                        -> Whisper transcription
                        -> candidate clip suggestions
-                       -> human approval
+                       -> automatic candidate approval
                        -> FFmpeg render -> optional HyperFrames composition
 ```
 
@@ -39,7 +40,7 @@ Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored.
 ## Important
 
 - Only upload or process media you own or are authorized to use.
-- The app does not publish automatically. Every suggested clip must be approved by a human.
+- Generated clip candidates are automatically marked approved and can be rendered immediately. This does not publish or upload them to social platforms.
 - Whisper model downloads and inference require compute and may be slow on CPU.
 - Do not expose this development server directly to the public internet. Add authentication, upload limits, malware scanning, private object storage, and a durable job queue before production deployment.
 
@@ -52,4 +53,4 @@ Set `CLIPFORGE_DATA_DIR` to choose where uploads and rendered files are stored.
 
 ## Status
 
-Initial backend scaffold. Cloud deployment, authentication, persistent database, background workers, and the web review interface remain to be implemented.
+Initial backend scaffold with automatic candidate approval. Cloud deployment, authentication, persistent database, background workers, and the web review interface remain to be implemented.
