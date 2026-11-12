@@ -60,17 +60,17 @@ Initial backend scaffold with automatic candidate approval and optional LLM-base
 
 ## Durable cloud storage (optional)
 
-For durable deployments, configure Cloudflare D1 for metadata and Stored for media objects. The backend restores job and clip records from D1 at startup and stores source videos and rendered MP4 files in Stored. D1 stores JSON records only; video bytes remain in object storage.
+For durable deployments, configure Cloudflare D1 for metadata and Backblaze B2 for media objects. The backend restores job and clip records from D1 at startup and stores source videos and rendered MP4 files in Backblaze B2. D1 stores JSON records only; video bytes remain in object storage.
 
-Stored currently advertises a 5 GB free tier with no credit card required. Its S3-compatible endpoint is `https://s3.stored.cloud`, region `us-east-1`; use path-style addressing. Review the provider's current limits before uploading large media.
+Backblaze B2 offers 10 GB free storage. For US West, use the exact endpoint shown in your bucket details (commonly `https://s3.us-west-004.backblazeb2.com`) and region `us-west-004`; use path-style addressing. Review current usage limits before uploading large media.
 
 Set these Render environment variables (never commit their values):
 
 - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account ID (also used by the existing Workers AI transcription integration).
 - `CLOUDFLARE_D1_DATABASE_ID`: D1 database UUID.
 - `CLOUDFLARE_D1_API_TOKEN`: API token with D1 Read and D1 Write permissions.
-- `STORED_ENDPOINT`: `https://s3.stored.cloud`.
-- `STORED_ACCESS_KEY_ID` and `STORED_SECRET_ACCESS_KEY`: Stored S3 credentials.
-- `STORED_BUCKET_NAME`: exact bucket name created in Stored.
+- `B2_ENDPOINT`: the exact S3 endpoint shown in your Backblaze bucket details.
+- `B2_KEY_ID` and `B2_APPLICATION_KEY`: Backblaze application key credentials.
+- `STORED_BUCKET_NAME`: exact bucket name created in Backblaze B2.
 
-Create the D1 tables automatically on backend startup. The backend must have both D1 and Stored configured; it intentionally refuses a partial cloud-storage configuration to avoid persisting metadata while leaving media on ephemeral disk. Existing in-memory/local-disk behavior remains available when no cloud-storage variables are configured. Existing jobs created before cloud storage is enabled are not migrated automatically; upload those source videos again after setup.
+Create the D1 tables automatically on backend startup. The backend must have both D1 and Backblaze B2 configured; it intentionally refuses a partial cloud-storage configuration to avoid persisting metadata while leaving media on ephemeral disk. Existing in-memory/local-disk behavior remains available when no cloud-storage variables are configured. Existing jobs created before cloud storage is enabled are not migrated automatically; upload those source videos again after setup.
