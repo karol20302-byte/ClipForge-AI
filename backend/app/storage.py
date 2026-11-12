@@ -57,10 +57,10 @@ def d1(sql: str, params: list[str] | None = None) -> list[dict]:
 
 def init_storage() -> None:
     b2_values = (B2_ENDPOINT, B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME)
-    b2_ready = all(stored_values)
+    b2_ready = all(b2_values)
     if any((B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME)) and not d1_configured():
         raise RuntimeError("Object storage is configured without D1; configure both so media and metadata remain recoverable")
-    if d1_configured() and not stored_ready:
+    if d1_configured() and not b2_ready:
         raise RuntimeError("D1 is configured but Backblaze B2 object storage is incomplete; configure both to enable durable media and metadata storage")
     if d1_configured():
         d1("CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
@@ -98,7 +98,7 @@ def put_media(local_path: str | Path, key: str) -> str:
 def get_media(location: str, destination: str | Path) -> Path:
     if not location.startswith("b2://"):
         return Path(location)
-    client = stored_client()
+    client = b2_client()
     if client is None:
         raise RuntimeError("Backblaze B2 object storage is not configured")
     key = location[len("b2://"):]
