@@ -208,7 +208,7 @@ def import_video_url(request: ImportUrlRequest):
     jobs[video_id] = {
         "id": video_id,
         "filename": filename,
-        "path": str(destination),
+        "path": put_media(destination, f"uploads/{video_id}{suffix}"),
         "status": "uploaded",
         "transcript": None,
     }
