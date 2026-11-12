@@ -21,6 +21,18 @@ $("#video-file").addEventListener("change", () => {
   $("#upload-button").disabled = !file;
 });
 $("#upload-button").addEventListener("click", uploadVideo);
+$("#youtube-reference").addEventListener("click", () => {
+  const value = $("#youtube-url").value.trim();
+  let parsed;
+  try { parsed = new URL(value); } catch (_) { setStatus("#youtube-status", "Enter a valid YouTube video link."); return; }
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  if (!["youtube.com", "m.youtube.com", "youtu.be"].includes(host)) {
+    setStatus("#youtube-status", "That doesn't look like a YouTube link."); return;
+  }
+  setStatus("#youtube-status", "YouTube link saved as a reference in this browser. To process it, download your own/authorized source using YouTube Studio and upload the file above.");
+  toast("YouTube reference accepted");
+});
+$("#media-import").addEventListener("click", importMediaUrl);
 $("#transcribe-button").addEventListener("click", transcribeVideo);
 $("#detect-button").addEventListener("click", detectClips);
 
@@ -127,6 +139,35 @@ function uploadVideo() {
   xhr.send(form);
 }
 
+async function importMediaUrl() {
+  const input = $("#media-url");
+  const button = $("#media-import");
+  const url = input.value.trim();
+  if (!url) { setStatus("#media-status", "Paste a direct video file URL first."); return; }
+  button.disabled = true;
+  button.textContent = "Importing…";
+  setStatus("#media-status", "Checking and importing the direct media file…");
+  try {
+    const result = await api("/api/videos/import-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
+    });
+    state.videoId = result.id;
+    $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
+    $("#video-summary span:last-child").textContent = result.filename;
+    $("#transcribe-button").disabled = false;
+    $("#detect-button").disabled = true;
+    setStatus("#upload-status", "Video imported. Ready to transcribe.");
+    setStatus("#media-status", "Import complete.");
+    toast("Video imported successfully");
+  } catch (error) {
+    setStatus("#media-status", error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Import";
+  }
+}
 async function transcribeVideo() {
   if (!state.videoId) return;
   $("#transcribe-button").disabled = true;
