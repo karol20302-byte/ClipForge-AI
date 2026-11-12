@@ -39,27 +39,93 @@ function toast(message) {
 }
 function setStatus(selector, message) { $(selector).textContent = message; }
 
-async function uploadVideo() {
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+function uploadVideo() {
   const file = $("#video-file").files[0];
   if (!file) return;
   const button = $("#upload-button");
+  const progress = $("#upload-progress");
+  const fill = $("#upload-fill");
+  const startedAt = Date.now();
+  let lastLoaded = 0;
+  let lastTime = startedAt;
+  let smoothedSpeed = 0;
   button.disabled = true;
-  setStatus("#upload-status", "Uploading video…");
-  try {
-    const form = new FormData();
-    form.append("file", file);
-    const result = await api("/api/videos", { method: "POST", body: form });
-    state.videoId = result.id;
-    $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
-    $("#video-summary span:last-child").textContent = result.filename;
-    $("#transcribe-button").disabled = false;
-    setStatus("#upload-status", "Upload complete. Ready to transcribe.");
-    toast("Video uploaded");
-  } catch (error) {
-    setStatus("#upload-status", error.message);
+  progress.hidden = false;
+  fill.style.width = "0%";
+  $("#upload-phase").textContent = "INITIALIZING TRANSFER";
+  $("#upload-percent").textContent = "0%";
+  $("#upload-bytes").textContent = "0 MB / " + formatBytes(file.size);
+  $("#upload-speed").textContent = "Connecting…";
+  $("#upload-eta").textContent = "Calculating time…";
+  setStatus("#upload-status", "Preparing secure upload…");
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", state.api + "/api/videos");
+  if (state.apiKey) xhr.setRequestHeader("X-API-Key", state.apiKey);
+  xhr.upload.addEventListener("progress", (event) => {
+    if (!event.lengthComputable) return;
+    const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+    const now = Date.now();
+    const elapsed = (now - lastTime) / 1000;
+    if (elapsed >= 0.35) {
+      const instantSpeed = (event.loaded - lastLoaded) / elapsed;
+      smoothedSpeed = smoothedSpeed ? smoothedSpeed * 0.65 + instantSpeed * 0.35 : instantSpeed;
+      lastLoaded = event.loaded;
+      lastTime = now;
+    }
+    fill.style.width = percent + "%";
+    $("#upload-percent").textContent = percent + "%";
+    $("#upload-bytes").textContent = formatBytes(event.loaded) + " / " + formatBytes(event.total);
+    $("#upload-phase").textContent = percent >= 100 ? "FINALIZING VIDEO" : "TRANSFERRING VIDEO";
+    $("#upload-speed").textContent = smoothedSpeed > 0 ? formatBytes(smoothedSpeed) + "/s" : "Measuring speed…";
+    const remaining = smoothedSpeed > 0 ? Math.ceil((event.total - event.loaded) / smoothedSpeed) : null;
+    $("#upload-eta").textContent = remaining !== null ? (remaining <= 1 ? "Almost there" : remaining + " sec remaining") : "Calculating time…";
+    setStatus("#upload-status", percent >= 100 ? "Transfer sent. Waiting for server confirmation…" : "Uploading your video…");
+  });
+  xhr.addEventListener("load", () => {
+    let result = {};
+    try { result = JSON.parse(xhr.responseText || "{}"); } catch (_) {}
+    if (xhr.status >= 200 && xhr.status < 300) {
+      state.videoId = result.id;
+      $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
+      $("#video-summary span:last-child").textContent = result.filename;
+      $("#transcribe-button").disabled = false;
+      fill.style.width = "100%";
+      $("#upload-percent").textContent = "100%";
+      $("#upload-phase").textContent = "TRANSFER COMPLETE";
+      $("#upload-speed").textContent = "Verified by server";
+      $("#upload-eta").textContent = "Ready for AI processing";
+      progress.classList.add("is-complete");
+      setStatus("#upload-status", "Upload complete. Your video is ready to transcribe.");
+      toast("Video uploaded successfully");
+    } else {
+      const message = result.detail || result.message || "Upload failed (" + xhr.status + ")";
+      $("#upload-phase").textContent = "TRANSFER INTERRUPTED";
+      progress.classList.add("is-error");
+      setStatus("#upload-status", message);
+      button.disabled = false;
+    }
+  });
+  xhr.addEventListener("error", () => {
+    $("#upload-phase").textContent = "CONNECTION ERROR";
+    progress.classList.add("is-error");
+    setStatus("#upload-status", "Network error. Check your connection and try again.");
     button.disabled = false;
-  }
+  });
+  xhr.addEventListener("abort", () => {
+    $("#upload-phase").textContent = "TRANSFER CANCELLED";
+    setStatus("#upload-status", "Upload was cancelled.");
+    button.disabled = false;
+  });
+  const form = new FormData();
+  form.append("file", file);
+  xhr.send(form);
 }
+
 async function transcribeVideo() {
   if (!state.videoId) return;
   $("#transcribe-button").disabled = true;
