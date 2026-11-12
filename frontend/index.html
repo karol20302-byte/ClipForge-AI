@@ -45,11 +45,11 @@
         <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.m4v">
       </label>
       <button id="upload-button" class="button button-primary" disabled>Upload video <span>↗</span></button>
-      <div class="import-divider"><span>OR USE A VIDEO LINK</span></div>
+      <div class="import-divider"><span>OPTIONAL · IMPORT AN AUTHORIZED SOURCE</span></div>
       <div class="source-import">
-        <label for="media-url">Paste your video URL</label>
-        <div class="api-row"><input id="media-url" type="url" inputmode="url" placeholder="https://example.com/your-video.mp4"><button id="media-import" class="button button-quiet">Start AI clipping</button></div>
-        <p id="media-status" class="hint">Currently supports publicly accessible direct video-file links (MP4, MOV, MKV, WEBM) over HTTPS. YouTube, Twitch and private cloud links need authorized platform connections and are not yet supported. Use only videos you own or have permission to edit.</p>
+        <label for="media-url">Creator-provided direct video file URL</label>
+        <div class="api-row"><input id="media-url" type="url" inputmode="url" placeholder="https://example.com/your-authorized-video.mp4"><button id="media-import" class="button button-quiet">Import & prepare</button></div>
+        <p id="media-status" class="hint">Imports a direct HTTPS video file into ClipForge, then sends it to your existing Whisper → highlight detection → FFmpeg workflow. Use a download link supplied by the creator or source owner. Platform watch-page links (YouTube, Twitch, etc.) are not extracted. Quality is the quality of the file provided by the source.</p>
       </div>
       <div id="upload-progress" class="upload-progress" hidden aria-live="polite">
         <div class="upload-progress-head"><div><span class="live-dot"></span><span id="upload-phase">PREPARING TRANSFER</span></div><strong id="upload-percent">0%</strong></div>
