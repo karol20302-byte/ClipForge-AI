@@ -5,7 +5,6 @@ const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.
 
 $("#api-url").value = state.api;
 $("#api-key").value = state.apiKey;
-$("#youtube-url").value = localStorage.getItem("clipforge-youtube-reference") || "";
 $("#save-api").addEventListener("click", () => {
   state.api = $("#api-url").value.trim().replace(/\/$/, "");
   localStorage.setItem("clipforge-api", state.api);
@@ -22,18 +21,6 @@ $("#video-file").addEventListener("change", () => {
   $("#upload-button").disabled = !file;
 });
 $("#upload-button").addEventListener("click", uploadVideo);
-$("#youtube-reference").addEventListener("click", () => {
-  const value = $("#youtube-url").value.trim();
-  let parsed;
-  try { parsed = new URL(value); } catch (_) { setStatus("#youtube-status", "Enter a valid YouTube video link."); return; }
-  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
-  if (!["youtube.com", "m.youtube.com", "youtu.be"].includes(host)) {
-    setStatus("#youtube-status", "That doesn't look like a YouTube link."); return;
-  }
-  localStorage.setItem("clipforge-youtube-reference", value);
-  setStatus("#youtube-status", "YouTube reference saved in this browser. To process it, download your own/authorized source using YouTube Studio and upload the file above.");
-  toast("YouTube reference accepted");
-});
 $("#media-import").addEventListener("click", importMediaUrl);
 $("#transcribe-button").addEventListener("click", transcribeVideo);
 $("#detect-button").addEventListener("click", detectClips);
@@ -145,10 +132,10 @@ async function importMediaUrl() {
   const input = $("#media-url");
   const button = $("#media-import");
   const url = input.value.trim();
-  if (!url) { setStatus("#media-status", "Paste a direct video file URL first."); return; }
+  if (!url) { setStatus("#media-status", "Paste a video URL first."); return; }
   button.disabled = true;
-  button.textContent = "Importing…";
-  setStatus("#media-status", "Checking and importing the direct media file…");
+  button.textContent = "Starting…";
+  setStatus("#media-status", "Connecting to your video source…");
   try {
     const result = await api("/api/videos/import-url", {
       method: "POST",
@@ -161,13 +148,13 @@ async function importMediaUrl() {
     $("#transcribe-button").disabled = false;
     $("#detect-button").disabled = true;
     setStatus("#upload-status", "Video imported. Ready to transcribe.");
-    setStatus("#media-status", "Import complete.");
+    setStatus("#media-status", "Source ready. Transcribe audio, then detect highlights.");
     toast("Video imported successfully");
   } catch (error) {
     setStatus("#media-status", error.message);
   } finally {
     button.disabled = false;
-    button.textContent = "Import";
+    button.textContent = "Start AI clipping";
   }
 }
 async function transcribeVideo() {
