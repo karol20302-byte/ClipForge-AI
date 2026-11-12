@@ -11,6 +11,7 @@ import whisper
 
 from .highlight_detector import detect_highlights
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -141,6 +142,17 @@ def approve_clip(clip_id: str, request: ApprovalRequest):
         raise HTTPException(404, "Clip candidate not found")
     candidate["status"] = "approved" if request.approved else "rejected"
     return candidate
+
+
+@app.get("/api/clips/{clip_id}/download")
+def download_clip(clip_id: str):
+    candidate = clip_candidates.get(clip_id)
+    if not candidate:
+        raise HTTPException(404, "Clip candidate not found")
+    output = OUTPUT_DIR / f"{clip_id}.mp4"
+    if not output.is_file():
+        raise HTTPException(404, "Rendered clip not found")
+    return FileResponse(output, media_type="video/mp4", filename=f"clipforge-{clip_id}.mp4")
 
 
 @app.post("/api/clips/{clip_id}/render")
