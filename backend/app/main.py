@@ -48,7 +48,7 @@ ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
 
 @app.middleware("http")
 async def protect_api_and_add_headers(request: Request, call_next):
-    if request.url.path.startswith("/api/") and API_KEY:
+    if request.method != "OPTIONS" and request.url.path.startswith("/api/") and API_KEY:
         supplied_key = request.headers.get("x-api-key", "")
         if not hmac.compare_digest(supplied_key, API_KEY):
             return JSONResponse(status_code=401, content={"detail": "Missing or invalid API key"})
