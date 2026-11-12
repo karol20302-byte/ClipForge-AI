@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import hmac
+import json
 import os
+import re
 import shutil
 import subprocess
+import tempfile
+import urllib.error
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Literal
 
-import whisper
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -38,7 +42,6 @@ app.add_middleware(
 # Demo-only in-memory state. Replace with PostgreSQL before production.
 jobs: dict[str, dict] = {}
 clip_candidates: dict[str, dict] = {}
-whisper_model = None
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
 
 
@@ -115,27 +118,108 @@ def list_videos():
     return [{k: v for k, v in job.items() if k != "path"} for job in jobs.values()]
 
 
+def _vtt_timestamp(value: str) -> float:
+    value = value.strip().replace(",", ".")
+    parts = value.split(":")
+    if len(parts) == 3:
+        hours, minutes, seconds = parts
+    elif len(parts) == 2:
+        hours, minutes, seconds = "0", parts[0], parts[1]
+    else:
+        return 0.0
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+def _segments_from_vtt(vtt: str) -> list[dict]:
+    segments = []
+    for block in re.split(r"\\n\\s*\\n", vtt.replace("\\r", "").strip()):
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        timing_index = next((i for i, line in enumerate(lines) if "-->" in line), None)
+        if timing_index is None:
+            continue
+        timing = lines[timing_index].split("-->", 1)
+        start_match = re.search(r"[0-9:.,]+", timing[0])
+        end_match = re.search(r"[0-9:.,]+", timing[1])
+        if not start_match or not end_match:
+            continue
+        text = " ".join(lines[timing_index + 1:]).strip()
+        if text:
+            segments.append({
+                "start": _vtt_timestamp(start_match.group()),
+                "end": _vtt_timestamp(end_match.group()),
+                "text": text,
+            })
+    return segments
+
+
 @app.post("/api/videos/{video_id}/transcribe")
-def transcribe(video_id: str, model_name: str = "tiny"):
-    global whisper_model
+def transcribe(video_id: str):
     job = jobs.get(video_id)
     if not job:
         raise HTTPException(404, "Video not found")
     if shutil.which("ffmpeg") is None:
         raise HTTPException(503, "FFmpeg is not installed on the server")
+
+    account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+    api_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
+    if not account_id or not api_token:
+        raise HTTPException(503, "Cloudflare Workers AI credentials are not configured")
+
+    audio_path = None
     try:
-        if whisper_model is None:
-            whisper_model = whisper.load_model(model_name)
-        result = whisper_model.transcribe(job["path"], word_timestamps=True)
+        with tempfile.NamedTemporaryFile(suffix=".mp3", dir=str(UPLOAD_DIR), delete=False) as audio_file:
+            audio_path = Path(audio_file.name)
+        extract = [
+            "ffmpeg", "-y", "-i", job["path"], "-vn", "-ac", "1",
+            "-ar", "16000", "-b:a", "64k", "-f", "mp3", str(audio_path),
+        ]
+        subprocess.run(extract, check=True, capture_output=True, text=True, timeout=600)
+        audio_bytes = audio_path.read_bytes()
+        if not audio_bytes:
+            raise HTTPException(422, "No audio track was found in this video")
+
+        endpoint = (
+            f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
+            "/ai/run/@cf/openai/whisper"
+        )
+        request = urllib.request.Request(
+            endpoint,
+            data=audio_bytes,
+            headers={
+                "Authorization": f"Bearer {api_token}",
+                "Content-Type": "audio/mpeg",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=600) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        result = payload.get("result", payload)
+        transcript_text = str(result.get("text", "")).strip()
+        vtt = str(result.get("vtt", ""))
+        segments = _segments_from_vtt(vtt)
+        if not segments and transcript_text:
+            segments = [{"start": 0.0, "end": 0.0, "text": transcript_text}]
+        if not transcript_text:
+            raise HTTPException(502, "Cloudflare returned an empty transcription")
+
+    except HTTPException:
+        raise
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:1000]
+        raise HTTPException(502, f"Cloudflare transcription error ({exc.code}): {detail}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise HTTPException(504, "Audio extraction timed out") from exc
+    except subprocess.CalledProcessError as exc:
+        raise HTTPException(422, f"Could not extract audio: {exc.stderr[-800:]}") from exc
     except Exception as exc:
-        raise HTTPException(500, f"Transcription failed: {exc}") from exc
-    segments = [
-        {"start": float(s["start"]), "end": float(s["end"]), "text": s["text"].strip()}
-        for s in result.get("segments", [])
-    ]
+        raise HTTPException(502, f"Cloudflare transcription failed: {exc}") from exc
+    finally:
+        if audio_path:
+            audio_path.unlink(missing_ok=True)
+
     job["transcript"] = segments
     job["status"] = "transcribed"
-    return {"video_id": video_id, "language": result.get("language"), "segments": segments}
+    return {"video_id": video_id, "language": None, "text": transcript_text, "segments": segments}
 
 
 @app.post("/api/videos/{video_id}/suggest-clips")
