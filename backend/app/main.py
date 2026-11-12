@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import tempfile
 import urllib.error
@@ -16,7 +18,7 @@ from typing import Literal
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 from app.highlight_detector import detect_highlights
 DATA_DIR = Path(os.getenv("CLIPFORGE_DATA_DIR", "./data")).resolve()
@@ -69,6 +71,10 @@ class RenderRequest(BaseModel):
     aspect: Literal["9:16", "16:9", "1:1"] = "9:16"
 
 
+class ImportUrlRequest(BaseModel):
+    url: str
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "clipforge-api"}
@@ -112,6 +118,77 @@ async def upload_video(file: UploadFile = File(...)):
         "transcript": None,
     }
     return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "uploaded"}
+
+
+@app.post("/api/videos/import-url")
+def import_video_url(request: ImportUrlRequest):
+    from urllib.parse import urlparse, unquote
+
+    parsed = urlparse(request.url.strip())
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise HTTPException(422, "Use a public HTTPS direct video-file URL.")
+    hostname = parsed.hostname.lower().rstrip(".")
+    if hostname in {"localhost", "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}:
+        raise HTTPException(422, "This field accepts direct media-file URLs, not YouTube watch links.")
+    suffix = Path(unquote(parsed.path)).suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(415, "The URL must point directly to MP4, MOV, MKV, WEBM, or M4V.")
+    try:
+        addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
+        if not addresses:
+            raise ValueError("No address found")
+        for address in addresses:
+            ip = ipaddress.ip_address(address[4][0])
+            if not ip.is_global:
+                raise ValueError("Non-public address")
+    except Exception as exc:
+        raise HTTPException(422, "The media host must resolve to a public internet address.") from exc
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirect)
+    video_id = str(uuid.uuid4())
+    destination = UPLOAD_DIR / f"{video_id}{suffix}"
+    total = 0
+    try:
+        req = urllib.request.Request(request.url.strip(), headers={"User-Agent": "ClipForgeAI/1.0"})
+        with opener.open(req, timeout=30) as response:
+            content_type = response.headers.get_content_type()
+            if content_type not in {"video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "application/octet-stream"}:
+                raise HTTPException(415, "The URL did not return a supported video file.")
+            length = response.headers.get("Content-Length", "")
+            if length.isdigit() and int(length) > MAX_UPLOAD_BYTES:
+                raise HTTPException(413, f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit")
+            with destination.open("wb") as out:
+                while chunk := response.read(1024 * 1024):
+                    total += len(chunk)
+                    if total > MAX_UPLOAD_BYTES:
+                        raise HTTPException(413, f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit")
+                    out.write(chunk)
+    except HTTPException:
+        destination.unlink(missing_ok=True)
+        raise
+    except urllib.error.HTTPError as exc:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(502, f"Media host returned HTTP {exc.code}; redirects are not followed.") from exc
+    except Exception as exc:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(502, f"Could not import the media URL: {exc}") from exc
+    if total == 0:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(400, "The media URL returned an empty file")
+
+    filename = Path(unquote(parsed.path)).name or f"imported-video{suffix}"
+    jobs[video_id] = {
+        "id": video_id,
+        "filename": filename,
+        "path": str(destination),
+        "status": "uploaded",
+        "transcript": None,
+    }
+    return {"id": video_id, "filename": filename, "status": "uploaded"}
 
 
 @app.get("/api/videos")
