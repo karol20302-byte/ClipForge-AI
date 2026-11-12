@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
@@ -47,8 +48,12 @@ def d1(sql: str, params: list[str] | None = None) -> list[dict]:
                  "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=30) as response:
-        payload = json.loads(response.read().decode())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            payload = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:1200]
+        raise RuntimeError(f"Cloudflare D1 API error ({exc.code}): {detail}") from exc
     if not payload.get("success"):
         raise RuntimeError("Cloudflare D1 rejected a database operation")
     result = payload.get("result") or []
