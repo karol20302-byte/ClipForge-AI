@@ -132,14 +132,15 @@ def suggest_clips(video_id: str, min_seconds: float = 15, max_seconds: float = 6
                 "start": start,
                 "end": end,
                 "transcript_excerpt": " ".join(text_parts),
-                "status": "pending_review",
+                "status": "approved",
+                "approval_method": "automatic",
             }
             clip_candidates[candidate_id] = candidate
             candidates.append(candidate)
             i = j
         else:
             i += 1
-    job["status"] = "awaiting_review"
+    job["status"] = "clips_approved"
     return {"video_id": video_id, "candidates": candidates}
 
 
