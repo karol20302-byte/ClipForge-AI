@@ -116,7 +116,7 @@ def list_videos():
 
 
 @app.post("/api/videos/{video_id}/transcribe")
-def transcribe(video_id: str, model_name: str = "base"):
+def transcribe(video_id: str, model_name: str = "tiny"):
     global whisper_model
     job = jobs.get(video_id)
     if not job:
