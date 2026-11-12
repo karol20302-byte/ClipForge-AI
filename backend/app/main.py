@@ -58,7 +58,7 @@ def restore_persistent_state():
 
 def local_video_path(job: dict) -> Path:
     location = job["path"]
-    if location.startswith("stored://"):
+    if location.startswith("b2://"):
         suffix = Path(job.get("filename", "source.mp4")).suffix or ".mp4"
         cached = UPLOAD_DIR / (job["id"] + "-cached" + suffix)
         return get_media(location, cached)
