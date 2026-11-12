@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+from app.highlight_detector import detect_highlights
 DATA_DIR = Path(os.getenv("CLIPFORGE_DATA_DIR", "./data")).resolve()
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = DATA_DIR / "renders"
