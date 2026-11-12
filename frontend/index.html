@@ -57,6 +57,15 @@
     <section class="panel workflow-panel">
       <div class="section-heading"><div><p class="eyebrow">STEP 02</p><h2>Find highlights</h2></div><span class="step-number">02</span></div>
       <div class="video-summary" id="video-summary"><span class="summary-dot"></span><span>No video uploaded yet</span></div>
+      <div class="clip-settings">
+        <div class="settings-heading"><strong>CLIP CUSTOMIZATION</strong><span>SET BEFORE GENERATION</span></div>
+        <div class="settings-grid">
+          <label>Minimum duration (sec)<input id="min-duration" type="number" min="10" max="180" step="5" value="30"></label>
+          <label>Maximum duration (sec)<input id="max-duration" type="number" min="10" max="180" step="5" value="60"></label>
+          <label class="ratio-setting">Clip ratio<select id="clip-ratio"><option value="9:16" selected>Vertical · 9:16</option><option value="1:1">Square · 1:1</option><option value="16:9">Landscape · 16:9</option></select></label>
+        </div>
+        <p class="hint">Choose the duration range and output shape before finding highlights.</p>
+      </div>
       <div class="button-stack">
         <button id="transcribe-button" class="button button-secondary" disabled>① Transcribe audio</button>
         <button id="detect-button" class="button button-primary" disabled>② Detect & approve clips <span>✦</span></button>
