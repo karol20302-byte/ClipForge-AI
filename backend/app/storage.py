@@ -54,6 +54,9 @@ def d1(sql: str, params: list[str] | None = None) -> list[dict]:
 
 
 def init_storage() -> None:
+    r2_ready = all((R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME))
+    if d1_configured() and not r2_ready:
+        raise RuntimeError("D1 is configured but R2 is incomplete; configure both to enable durable media and metadata storage")
     if d1_configured():
         d1("CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
         d1("CREATE TABLE IF NOT EXISTS clips (id TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
