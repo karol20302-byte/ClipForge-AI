@@ -162,9 +162,17 @@ async function transcribeVideo() {
   $("#transcribe-button").disabled = true;
   setStatus("#process-status", "Transcribing audio with Whisper… This can take a while.");
   try {
-    await api("/api/videos/" + encodeURIComponent(state.videoId) + "/transcribe", { method: "POST" });
+    const language = $("#transcription-language").value;
+    const task = $("#transcription-task").value;
+    const result = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language, task })
+    });
     $("#detect-button").disabled = false;
-    setStatus("#process-status", "Transcript ready. Run highlight detection next.");
+    const languageNames = { en: "English", ml: "Malayalam", hi: "Hindi", ta: "Tamil", kn: "Kannada", te: "Telugu", bn: "Bengali", mr: "Marathi", ur: "Urdu", es: "Spanish", fr: "French", de: "German", ar: "Arabic", pt: "Portuguese", ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese" };
+    const detected = languageNames[result.language] || (language === "auto" ? "automatically detected" : languageNames[language]);
+    setStatus("#process-status", "Transcript ready · " + detected + (task === "translate" ? " → English translation" : "") + ". Run highlight detection next.");
     toast("Transcription complete");
   } catch (error) {
     setStatus("#process-status", error.message);
