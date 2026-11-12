@@ -5,6 +5,7 @@ const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.
 
 $("#api-url").value = state.api;
 $("#api-key").value = state.apiKey;
+$("#youtube-url").value = localStorage.getItem("clipforge-youtube-reference") || "";
 $("#save-api").addEventListener("click", () => {
   state.api = $("#api-url").value.trim().replace(/\/$/, "");
   localStorage.setItem("clipforge-api", state.api);
@@ -29,7 +30,8 @@ $("#youtube-reference").addEventListener("click", () => {
   if (!["youtube.com", "m.youtube.com", "youtu.be"].includes(host)) {
     setStatus("#youtube-status", "That doesn't look like a YouTube link."); return;
   }
-  setStatus("#youtube-status", "YouTube link saved as a reference in this browser. To process it, download your own/authorized source using YouTube Studio and upload the file above.");
+  localStorage.setItem("clipforge-youtube-reference", value);
+  setStatus("#youtube-status", "YouTube reference saved in this browser. To process it, download your own/authorized source using YouTube Studio and upload the file above.");
   toast("YouTube reference accepted");
 });
 $("#media-import").addEventListener("click", importMediaUrl);
