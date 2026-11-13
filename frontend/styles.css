@@ -717,3 +717,30 @@ footer{border-color:#40583b;color:#9aaf91}
 @keyframes voxelPickaxe{0%,100%{transform:rotate(-28deg) translateY(-2px)}50%{transform:rotate(28deg) translateY(2px)}}
 @keyframes voxelOre{0%,100%{transform:translateY(0);filter:brightness(1)}50%{transform:translateY(2px);filter:brightness(1.5)}}
 @media(prefers-reduced-motion:reduce){.external-download-spinner:before,.external-download-spinner:after{animation:none}}
+
+
+/* Minecraft house-building animation for external link downloads */
+.external-download-spinner{width:38px;height:38px;position:relative;flex:none;border:0;border-radius:0;animation:none}
+.external-download-spinner:before{
+ content:"";position:absolute;left:10px;bottom:5px;width:18px;height:17px;
+ background:linear-gradient(90deg,#9a6338 0 5px,#b77a45 5px 13px,#8a542f 13px 100%);
+ border:2px solid #342719;box-shadow:0 3px 0 #172817;
+ transform-origin:bottom;animation:mcHouseWalls 2.4s steps(4,end) infinite;
+ image-rendering:pixelated
+}
+.external-download-spinner:after{
+ content:"";position:absolute;left:7px;top:4px;width:24px;height:17px;
+ background:linear-gradient(135deg,#a74732 0 48%,#7d3028 49% 100%);
+ clip-path:polygon(50% 0,100% 55%,88% 55%,88% 100%,12% 100%,12% 55%,0 55%);
+ filter:drop-shadow(2px 2px 0 #342719);
+ opacity:0;transform:translateY(8px) scale(.7);transform-origin:bottom;
+ animation:mcHouseRoof 2.4s steps(3,end) infinite;
+ image-rendering:pixelated
+}
+.external-download-progress.is-complete .external-download-spinner:before{transform:none;animation:none;background:#9c6a3d}
+.external-download-progress.is-complete .external-download-spinner:after{opacity:1;transform:none;animation:none;background:#79d34b}
+.external-download-progress.is-error .external-download-spinner:before{animation:none;background:#8c5148}
+.external-download-progress.is-error .external-download-spinner:after{animation:none;opacity:.5}
+@keyframes mcHouseWalls{0%{transform:scaleY(.12)}25%{transform:scaleY(.35)}50%{transform:scaleY(.62)}75%,100%{transform:scaleY(1)}}
+@keyframes mcHouseRoof{0%,48%{opacity:0;transform:translateY(8px) scale(.7)}70%{opacity:.55;transform:translateY(3px) scale(.88)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.external-download-spinner:before,.external-download-spinner:after{animation:none;opacity:1;transform:none}}
