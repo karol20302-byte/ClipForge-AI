@@ -581,3 +581,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .unified-divider,.unified-file-row{display:none!important}
 .unified-actions{margin-top:0}
 @media(max-width:520px){.unified-import{padding:11px}.unified-dropzone{min-height:145px}.unified-link-row{display:grid;grid-template-columns:28px minmax(0,1fr)}.unified-link-row input{grid-column:2;grid-row:1}.unified-link-row .button{grid-column:1/-1;width:100%}}
+
+
+/* Step 3: render finished vertical MP4s automatically, then show only the player */
+.clips-list{grid-template-columns:1fr;justify-items:center}
+.video-only-card{width:100%;max-width:390px;padding:10px;display:grid;justify-items:center;gap:8px;background:transparent;border:0;box-shadow:none}
+.video-only-card .auto-ready-player{display:block;width:100%;max-width:360px;aspect-ratio:9/16;height:auto;max-height:72vh;object-fit:contain;background:#050507;border:1px solid #343044;border-radius:16px}
+.auto-ready-player:not(.is-ready){visibility:hidden;height:0;min-height:0}
+.auto-render-status{width:100%;max-width:360px;padding:14px;border:1px solid #39334f;border-radius:12px;background:#171421;color:#cfc7e9;text-align:center;font:10px 'DM Mono',monospace;line-height:1.6}
+.auto-render-status.is-error{color:#ffb3b3;border-color:#754040}
+.auto-render-status .button{display:block;width:100%;margin-top:10px}
