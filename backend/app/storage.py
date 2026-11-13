@@ -110,6 +110,9 @@ def get_media(location: str, destination: str | Path) -> Path:
     key = location[len("b2://"):]
     target = Path(destination)
     target.parent.mkdir(parents=True, exist_ok=True)
+    # Avoid repeat B2 Class B downloads when this instance already has the file.
+    if target.is_file() and target.stat().st_size > 0:
+        return target
 
     # download_file() performs HeadObject first. Use GetObject directly so
     # downloads only require the B2 read-file permission.
