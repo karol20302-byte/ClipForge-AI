@@ -10,6 +10,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -22,7 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, HttpUrl
 
 from app.highlight_detector import detect_highlights
-from app.storage import get_media, init_storage, load_state, put_media, reset_persistent_data, save_clip, save_job
+from app.storage import get_last_activity, get_media, init_storage, load_state, put_media, reset_persistent_data, save_clip, save_job, touch_activity
 DATA_DIR = Path(os.getenv("CLIPFORGE_DATA_DIR", "./data")).resolve()
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = DATA_DIR / "renders"
@@ -72,6 +73,24 @@ async def protect_api_and_add_headers(request: Request, call_next):
         supplied_key = request.headers.get("x-api-key", "")
         if not hmac.compare_digest(supplied_key, API_KEY):
             return JSONResponse(status_code=401, content={"detail": "Missing or invalid API key"})
+    if request.method != "OPTIONS" and request.url.path.startswith("/api/") and request.url.path != "/api/health":
+        try:
+            now = int(time.time())
+            last_activity = get_last_activity()
+            if last_activity is not None and now - last_activity >= 24 * 60 * 60:
+                reset_persistent_data()
+                for folder in (UPLOAD_DIR, OUTPUT_DIR):
+                    folder.mkdir(parents=True, exist_ok=True)
+                    for item in folder.iterdir():
+                        if item.is_dir():
+                            shutil.rmtree(item)
+                        else:
+                            item.unlink(missing_ok=True)
+                jobs.clear()
+                clip_candidates.clear()
+            touch_activity(now)
+        except Exception as exc:
+            return JSONResponse(status_code=503, content={"detail": f"24-hour workspace cleanup/check failed: {exc}"})
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
