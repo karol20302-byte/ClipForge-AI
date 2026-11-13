@@ -495,9 +495,12 @@ function renderClips() {
     player.playsInline = true;
     player.preload = "auto";
     player.setAttribute("aria-label", "Vertical clip " + (index + 1));
-    card.append(player);
+    const placeholder = document.createElement("div");
+    placeholder.className = "clip-preparing";
+    placeholder.textContent = "✦  PREPARING VERTICAL CLIP " + String(index + 1).padStart(2, "0");
+    card.append(placeholder, player);
     list.append(card);
-    jobs.push({ clip, player, card, index });
+    jobs.push({ clip, player, card, index, placeholder });
   });
 
   // One shared status keeps Step 3 clean instead of repeating messages on every card.
@@ -506,6 +509,7 @@ function renderClips() {
   status.textContent = "Preparing your clips…";
   list.prepend(status);
 
+  $("#clips-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   if (state.renderQueueRunning) return;
   state.renderQueueRunning = true;
   (async () => {
@@ -521,7 +525,7 @@ function renderClips() {
   })();
 }
 
-async function prepareClipForPlayback(clip, player, status) {
+async function prepareClipForPlayback(clip, player, status, placeholder) {
   try {
     await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
       method: "POST",
@@ -564,9 +568,11 @@ async function prepareClipForPlayback(clip, player, status) {
     });
     player.classList.add("is-ready");
     player.dataset.objectUrl = url;
+    if (placeholder) placeholder.remove();
   } catch (error) {
     status.classList.add("is-error");
     status.textContent = "Clip preparation failed: " + error.message;
+    if (placeholder) placeholder.textContent = "CLIP RENDER FAILED · " + error.message;
     const retry = document.createElement("button");
     retry.type = "button";
     retry.className = "button button-secondary";
