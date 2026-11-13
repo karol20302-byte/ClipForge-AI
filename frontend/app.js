@@ -516,7 +516,7 @@ function renderClips() {
     try {
       for (let i = 0; i < jobs.length; i++) {
         status.textContent = "Preparing clips… " + (i + 1) + " of " + jobs.length;
-        await prepareClipForPlayback(jobs[i].clip, jobs[i].player, status);
+        await prepareClipForPlayback(jobs[i].clip, jobs[i].player, status, jobs[i].placeholder);
       }
       status.remove();
     } finally {
@@ -581,7 +581,7 @@ async function prepareClipForPlayback(clip, player, status, placeholder) {
       retry.remove();
       status.classList.remove("is-error");
       status.textContent = "Preparing clip again…";
-      prepareClipForPlayback(clip, player, status);
+      prepareClipForPlayback(clip, player, status, placeholder);
     }, { once: true });
     status.append(retry);
   }
