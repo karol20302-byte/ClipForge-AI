@@ -591,3 +591,19 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .auto-render-status{width:100%;max-width:360px;padding:14px;border:1px solid #39334f;border-radius:12px;background:#171421;color:#cfc7e9;text-align:center;font:10px 'DM Mono',monospace;line-height:1.6}
 .auto-render-status.is-error{color:#ffb3b3;border-color:#754040}
 .auto-render-status .button{display:block;width:100%;margin-top:10px}
+
+
+/* Minimal hero with a small animated pixel spark */
+.minimal-hero{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:26px 4px 25px;overflow:hidden}
+.minimal-hero h1{font-size:clamp(27px,6vw,39px);line-height:1.12;letter-spacing:-.055em;font-weight:800}
+.minimal-hero h1 .hero-pill{color:#b69cff}
+.minimal-hero .hero-copy{max-width:290px;margin:10px 0 0;font-size:12px;line-height:1.55;color:#a7a0b8}
+.pixel-spark{height:25px;width:34px;position:relative;margin:0 auto 13px;display:grid;grid-template-columns:repeat(4,5px);grid-template-rows:repeat(3,5px);gap:3px;transform:rotate(-8deg)}
+.pixel-spark span{width:5px;height:5px;background:#9b7cff;opacity:.18;animation:pixelTwinkle 1.8s steps(2,end) infinite}
+.pixel-spark span:nth-child(2),.pixel-spark span:nth-child(6),.pixel-spark span:nth-child(8){background:#57d9f5;animation-delay:.25s}
+.pixel-spark span:nth-child(3),.pixel-spark span:nth-child(7){animation-delay:.55s}
+.pixel-spark span:nth-child(4){opacity:0}
+.pixel-spark span:nth-child(5){animation-delay:.8s}
+.pixel-spark span:nth-child(9){background:#d6c5ff;animation-delay:1s}
+@keyframes pixelTwinkle{0%,100%{opacity:.12;transform:scale(.65)}45%{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.pixel-spark span{animation:none;opacity:.7}}
