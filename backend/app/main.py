@@ -541,20 +541,20 @@ def _ass_time(seconds: float) -> str:
 
 
 def _ass_escape_word(value: str) -> str:
-    return value.replace("\\\\", "").replace("{", "(").replace("}", ")").replace("\\n", " ").replace("\\r", " ")
+    return value.replace("\\", "").replace("{", "(").replace("}", ")").replace("\n", " ").replace("\r", " ").strip()
 
 
 def _build_caption_ass(segments: list[dict], clip_start: float, clip_end: float,
                        aspect: str, style: str, position: str, destination: Path) -> None:
     themes = {
-        "bold-pop": ("&H006AF3C8", 1, 5, 2),
-        "creator-yellow": ("&H005CE4FF", 1, 5, 2),
-        "clean": ("&H00FFFFFF", 0, 2, 1),
+        "bold-pop": ("&H0000DFFF", "&H00FFFFFF", 1, 4, 2),
+        "creator-yellow": ("&H0000DFFF", "&H00FFFFFF", 1, 4, 2),
+        "clean": ("&H00FFFFFF", "&H00FFFFFF", 0, 2, 1),
     }
-    highlight, bold, outline, shadow = themes[style]
-    font_size = 58 if aspect == "9:16" else (46 if aspect == "1:1" else 40)
+    primary, secondary, bold, outline, shadow = themes[style]
+    font_size = 64 if aspect == "9:16" else (54 if aspect == "1:1" else 46)
     alignment = 8 if position == "top" else 2
-    margin_v = 110 if position == "top" else (190 if aspect == "9:16" else 90)
+    margin_v = 175 if position == "top" else (230 if aspect == "9:16" else 110)
     play_width, play_height = (1920, 1080) if aspect == "16:9" else (1080, 1920)
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -565,7 +565,7 @@ PlayResY: {play_height}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,{font_size},{highlight},&H00FFFFFF,&HCC000000,&H80000000,{bold},0,1,{outline},{shadow},{alignment},70,70,{margin_v},1
+Style: Default,Noto Sans,{font_size},{primary},{secondary},&HCC000000,&H80000000,{bold},0,1,{outline},{shadow},{alignment},95,95,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -579,22 +579,40 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             continue
         start = max(absolute_start, clip_start)
         end = min(absolute_end, clip_end)
-        words = str(segment.get("text", "")).split()
+        words = [_ass_escape_word(word) for word in str(segment.get("text", "")).split()]
+        words = [word for word in words if word]
         if end <= start or not words:
             continue
-        duration_cs = max(len(words), int((end - start) * 100))
-        base, remainder = divmod(duration_cs, len(words))
-        karaoke = []
-        for index, word in enumerate(words):
-            safe_word = _ass_escape_word(word)
-            if safe_word:
-                word_cs = base + (1 if index < remainder else 0)
-                karaoke.append(f"{{\\k{word_cs}}}{safe_word}")
-        if karaoke:
-            dialogues.append(
-                f"Dialogue: 0,{_ass_time(start - clip_start)},{_ass_time(end - clip_start)},Default,,0,0,0,,{' '.join(karaoke)}"
-            )
-    destination.write_text(header + "\\n".join(dialogues) + "\\n", encoding="utf-8")
+
+        # Whisper VTT normally provides phrase-level timestamps, not true word
+        # timestamps. Allocate each phrase's duration across words, then show
+        # short 3–4 word cards rather than one long sentence across the frame.
+        duration_cs = max(len(words), int(round((end - start) * 100)))
+        weights = [max(2, min(len(word), 12)) for word in words]
+        weight_total = sum(weights)
+        word_durations = [max(1, int(duration_cs * weight / weight_total)) for weight in weights]
+        difference = duration_cs - sum(word_durations)
+        if difference:
+            word_durations[-1] = max(1, word_durations[-1] + difference)
+
+        timed_words = []
+        cursor = 0
+        for word, word_cs in zip(words, word_durations):
+            timed_words.append((word, word_cs, cursor))
+            cursor += word_cs
+
+        for offset in range(0, len(timed_words), 4):
+            chunk = timed_words[offset:offset + 4]
+            chunk_start_cs = chunk[0][2]
+            chunk_end_cs = chunk[-1][2] + chunk[-1][1]
+            karaoke = " ".join(f"{{\\k{word_cs}}}{word}" for word, word_cs, _ in chunk)
+            event_start = max(0.0, start - clip_start + chunk_start_cs / 100)
+            event_end = min(clip_end - clip_start, start - clip_start + chunk_end_cs / 100)
+            if event_end > event_start:
+                dialogues.append(
+                    f"Dialogue: 0,{_ass_time(event_start)},{_ass_time(event_end)},Default,,0,0,0,,{{\\q2}}{karaoke}"
+                )
+    destination.write_text(header + "\n".join(dialogues) + "\n", encoding="utf-8")
 
 
 @app.post("/api/clips/{clip_id}/render")
@@ -615,7 +633,11 @@ def render_clip(clip_id: str, request: RenderRequest):
         raise HTTPException(503, f"Could not retrieve source video from cloud storage: {exc}") from exc
     output = OUTPUT_DIR / f"{clip_id}.mp4"
     dimensions = {"9:16": "1080:1920", "16:9": "1920:1080", "1:1": "1080:1080"}
-    filters = f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=increase,crop={dimensions[request.aspect]}"
+    # Preserve the entire source frame instead of center-cropping faces and on-screen text.
+    filters = (
+        f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=decrease,"
+        f"pad={dimensions[request.aspect]}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1"
+    )
     caption_file = None
     if request.captions:
         transcript_segments = job.get("transcript") or []
@@ -636,8 +658,11 @@ def render_clip(clip_id: str, request: RenderRequest):
         "ffmpeg", "-y", "-ss", str(request.start), "-i", str(source_video),
         "-t", str(request.end - request.start),
         "-vf", filters,
-        "-threads", "1", "-c:v", "libx264", "-preset", "veryfast", "-crf", {"standard": "29", "high": "25", "maximum": "21"}[request.quality],
-        "-c:a", "aac", "-threads", "1", "-movflags", "+faststart", str(output),
+        "-threads", "1", "-c:v", "libx264", "-preset", "veryfast",
+        "-crf", {"standard": "23", "high": "19", "maximum": "17"}[request.quality],
+        "-profile:v", "high", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "160k", "-threads", "1",
+        "-movflags", "+faststart", str(output),
     ]
     try:
         subprocess.run(command, check=True, capture_output=True, text=True, timeout=900)
