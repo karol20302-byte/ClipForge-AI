@@ -282,12 +282,29 @@ function uploadVideo() {
 async function importMediaUrl() {
   const input = $("#youtube-url");
   const button = $("#media-import");
+  const progress = $("#external-download-progress");
+  const title = $("#external-download-title");
+  const detail = $("#external-download-detail");
+  const stage = $("#external-download-stage");
+  const elapsed = $("#external-download-elapsed");
   const url = input.value.trim();
   if (!url) { setStatus("#youtube-status", "Paste a video URL first."); return; }
   if (!$("#youtube-authorized").checked) { setStatus("#youtube-status", "Please confirm that you own this video or have permission to download and edit it."); return; }
+  const startedAt = Date.now();
+  let elapsedTimer;
+  const showExternalProgress = (heading, message, currentStage) => {
+    progress.hidden = false;
+    title.textContent = heading;
+    detail.textContent = message;
+    stage.textContent = currentStage;
+    const seconds = Math.floor((Date.now() - startedAt) / 1000);
+    elapsed.textContent = Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  };
   button.disabled = true;
-  button.textContent = "Starting…";
-  setStatus("#youtube-status", "Sending link to ClipForge…");
+  button.textContent = "Connecting…";
+  showExternalProgress("CONNECTING TO SOURCE", "Sending the external video link to ClipForge…", "SOURCE CHECK");
+  elapsedTimer = window.setInterval(() => showExternalProgress(title.textContent, detail.textContent, stage.textContent), 1000);
+  setStatus("#youtube-status", "Connecting to the external video source…");
   try {
     const queued = await api("/api/videos/import-url", {
       method: "POST",
@@ -297,8 +314,9 @@ async function importMediaUrl() {
     state.videoId = queued.id;
     $("#process-button").disabled = true;
     $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
-    $("#video-summary span:last-child").textContent = "Import queued…";
-    setStatus("#youtube-status", "Link accepted. Checking the source in the background…");
+    $("#video-summary span:last-child").textContent = "External import queued…";
+    showExternalProgress("SOURCE ACCEPTED", "ClipForge is checking the video and preparing the download…", "SOURCE CHECK");
+    setStatus("#youtube-status", "External link accepted. Download progress will appear here.");
 
     let completed = false;
     for (let attempt = 0; attempt < 900; attempt++) {
@@ -309,22 +327,31 @@ async function importMediaUrl() {
         completed = true;
         $("#video-summary span:last-child").textContent = status.filename || "Video imported";
         $("#process-button").disabled = false;
+        progress.classList.add("is-complete");
+        showExternalProgress("DOWNLOAD COMPLETE", "Your external video is imported and ready for AI processing.", "READY TO EDIT");
         setStatus("#upload-status", "Video imported. Ready to transcribe.");
         setStatus("#youtube-status", "Video ready. Tap Generate clips to start transcription and highlight detection.");
         toast("Video imported successfully");
         break;
       }
-      const phase = status.status === "downloading" ? "Downloading video" : status.status === "checking" ? "Checking video details" : "Waiting for import worker";
-      setStatus("#youtube-status", phase + "… ClipForge is working in the background; you can leave this screen open.");
+      const downloading = status.status === "downloading";
+      const heading = downloading ? "DOWNLOADING EXTERNAL VIDEO" : status.status === "checking" ? "CHECKING VIDEO SOURCE" : "WAITING FOR IMPORT WORKER";
+      const message = downloading ? "Fetching video data from the external platform. This can take a while for long videos…" : status.status === "checking" ? "Validating the source and reading video details…" : "Your import is queued. ClipForge is preparing the downloader…";
+      const currentStage = downloading ? "DOWNLOADING" : status.status === "checking" ? "SOURCE CHECK" : "QUEUED";
+      showExternalProgress(heading, message, currentStage);
+      setStatus("#youtube-status", message);
       if (status.filename && status.filename !== "Checking video link…") {
         $("#video-summary span:last-child").textContent = status.filename;
       }
     }
-    if (!completed) throw new Error("Import is taking longer than expected. Your import may still be running; check again shortly.");
+    if (!completed) throw new Error("Import is taking longer than expected. It may still be running; check again shortly.");
   } catch (error) {
+    progress.classList.add("is-error");
+    showExternalProgress("IMPORT NEEDS ATTENTION", error.message, "ERROR");
     setStatus("#youtube-status", error.message);
     if (!state.videoId) $("#process-button").disabled = true;
   } finally {
+    window.clearInterval(elapsedTimer);
     button.disabled = false;
     button.textContent = "Import link";
   }
