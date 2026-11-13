@@ -402,147 +402,91 @@ function renderClips() {
     list.append(empty);
     return;
   }
+
+  const jobs = [];
   state.clips.forEach((clip, index) => {
     const card = document.createElement("article");
-    card.className = "clip-card";
-    const top = document.createElement("div"); top.className = "clip-top";
-    const title = document.createElement("div"); title.className = "clip-title"; title.textContent = "HIGHLIGHT " + String(index + 1).padStart(2, "0");
-    const score = document.createElement("div"); score.className = "clip-score"; score.textContent = (clip.score ?? "—") + " / 100";
-    top.append(title, score);
-    const preview = document.createElement("div"); preview.className = "highlight-preview";
-    const previewLabel = document.createElement("div"); previewLabel.className = "preview-placeholder";
-    previewLabel.innerHTML = '<span class="preview-play">▶</span><strong>MP4 PREVIEW · TRANSCRIPT CAPTIONS</strong><small>' + formatTime(clip.start) + ' — ' + formatTime(clip.end) + '</small>';
-    preview.append(previewLabel);
-    const previewButton = document.createElement("button"); previewButton.className = "button button-secondary preview-button"; previewButton.textContent = "Generate MP4 + captions";
-    previewButton.addEventListener("click", () => createHighlightPreview(clip, preview, previewButton));
-    const excerpt = document.createElement("p"); excerpt.className = "clip-excerpt"; excerpt.textContent = clip.transcript_excerpt || "No transcript excerpt available.";
-    const meta = document.createElement("div"); meta.className = "clip-meta";
-    [formatTime(clip.start) + " – " + formatTime(clip.end), clip.status || "approved", clip.detection_method || "ranked"].forEach(value => {
-      const chip = document.createElement("span"); chip.className = "meta-chip"; chip.textContent = value; meta.append(chip);
-    });
-    const reason = document.createElement("p"); reason.className = "hint"; reason.textContent = clip.reason || "Automatically approved for rendering.";
-    const actions = document.createElement("div"); actions.className = "clip-actions";
-    const aspect = document.createElement("select"); aspect.setAttribute("aria-label", "Clip aspect ratio");
-    [["9:16","Vertical 9:16"],["1:1","Square 1:1"],["16:9","Landscape 16:9"]].forEach(([value,label]) => { const option=document.createElement("option"); option.value=value; option.textContent=label; aspect.append(option); });
-    aspect.value = clip.aspect || $("#clip-ratio").value;
-    const focus = document.createElement("select"); focus.setAttribute("aria-label", "Manual framing focus");
-    [["center","Focus: center"],["upper","Focus: upper"],["lower","Focus: lower"],["left","Focus: left"],["right","Focus: right"]].forEach(([value,label]) => { const option=document.createElement("option"); option.value=value; option.textContent=label; focus.append(option); });
-    const render = document.createElement("button"); render.className = "button button-primary"; render.textContent = "Render MP4";
-    render.addEventListener("click", () => renderClip(clip, aspect.value, focus.value, render, card));
-    actions.append(aspect, focus, render);
-    card.append(top, preview, previewButton, excerpt, meta, reason, actions);
+    card.className = "clip-card video-only-card";
+    const player = document.createElement("video");
+    player.className = "highlight-player auto-ready-player";
+    player.controls = true;
+    player.playsInline = true;
+    player.preload = "auto";
+    player.setAttribute("aria-label", "Vertical clip " + (index + 1));
+    const status = document.createElement("div");
+    status.className = "auto-render-status";
+    status.textContent = "Preparing vertical MP4 with captions…";
+    card.append(player, status);
     list.append(card);
+    jobs.push({ clip, player, status, card });
   });
+
+  // Render one at a time so the backend's single-FFmpeg limit is respected.
+  (async () => {
+    for (const job of jobs) await prepareClipForPlayback(job.clip, job.player, job.status);
+  })();
 }
-async function createHighlightPreview(clip, container, button) {
-  button.disabled = true;
-  button.textContent = "Preparing preview…";
-  container.classList.add("is-loading");
+
+async function prepareClipForPlayback(clip, player, status) {
   try {
-    const response = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/preview", {
-      method: "POST", headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
+    status.textContent = "Creating 9:16 MP4 + captions…";
+    await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        start: clip.start,
+        end: clip.end,
+        aspect: "9:16",
+        captions: true,
+        focus_x: 0.5,
+        focus_y: 0.5,
+        quality: "high",
+        edit_style: "creator",
+        caption_style: $("#caption-style")?.value || "bold-pop",
+        caption_position: $("#caption-position")?.value || "bottom"
+      })
+    });
+
+    status.textContent = "Loading finished MP4…";
+    const response = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
+      headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      throw new Error(body.detail || "Preview failed (" + response.status + ")");
+      throw new Error(body.detail || "Could not load rendered MP4 (" + response.status + ")");
     }
-    const url = URL.createObjectURL(await response.blob());
-    const player = document.createElement("video");
-    player.className = "highlight-player";
-    player.controls = true;
-    player.playsInline = true;
-    player.preload = "metadata";
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
     player.src = url;
-    player.addEventListener("ended", () => { player.currentTime = 0; }, { once: true });
-    container.replaceChildren(player);
-    const playButton = button.cloneNode(true);
-    playButton.textContent = "Play highlight";
-    playButton.disabled = false;
-    playButton.classList.add("is-ready");
-    playButton.addEventListener("click", () => { player.currentTime = 0; player.play().catch(() => {}); });
-    button.replaceWith(playButton);
-    container.dataset.objectUrl = url;
-  } catch (error) {
-    container.classList.remove("is-loading");
-    button.disabled = false;
-    button.textContent = "Retry preview";
-    toast(error.message);
-  }
-}
-async function renderClip(clip, aspect, focus, button, card) {
-  button.disabled = true;
-  button.textContent = "Rendering…";
-  const progress = document.createElement("div");
-  progress.className = "render-progress";
-  progress.innerHTML = '<div class="render-progress-head"><span class="render-spinner"></span><div><strong>RENDERING YOUR MP4</strong><small>Encoding video and synchronising captions…</small></div><span class="render-live">LIVE</span></div><div class="render-track"><span></span></div><div class="render-stages"><span class="active">PREPARING</span><span>ENCODING</span><span>FINALISING</span></div>';
-  const actions = card.querySelector(".clip-actions");
-  actions.after(progress);
-  const stageLabels = progress.querySelectorAll(".render-stages span");
-  let stageIndex = 0;
-  const stageTimer = setInterval(() => {
-    if (stageIndex < stageLabels.length - 1) {
-      stageLabels[stageIndex].classList.remove("active");
-      stageLabels[stageIndex].classList.add("done");
-      stageIndex += 1;
-      stageLabels[stageIndex].classList.add("active");
-    }
-  }, 1800);
-  let stage = "Sending render request";
-  try {
-    const captions = $("#caption-enabled").checked;
-    const renderInfo = await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        start: clip.start, end: clip.end, aspect, captions,
-        focus_x: ({ center: 0.5, upper: 0.5, lower: 0.5, left: 0.38, right: 0.62 })[focus],
-        focus_y: ({ center: 0.5, upper: 0.38, lower: 0.62, left: 0.5, right: 0.5 })[focus],
-        quality: $("#render-quality").value,
-        edit_style: $("#edit-style").value,
-        caption_style: $("#caption-style").value,
-        caption_position: $("#caption-position").value
-      })
+    player.load();
+    await new Promise((resolve, reject) => {
+      if (player.readyState >= 3) return resolve();
+      const ready = () => { cleanup(); resolve(); };
+      const failed = () => { cleanup(); reject(new Error("The MP4 could not be decoded by this browser.")); };
+      const cleanup = () => {
+        player.removeEventListener("canplay", ready);
+        player.removeEventListener("error", failed);
+      };
+      player.addEventListener("canplay", ready, { once: true });
+      player.addEventListener("error", failed, { once: true });
+      window.setTimeout(() => { cleanup(); reject(new Error("Timed out while preparing the MP4 player.")); }, 45000);
     });
-    const sceneCount = Number(renderInfo.scene_count || 1);
-    progress.querySelector(".render-progress-head small").textContent =
-      "Render complete · " + sceneCount + " scene" + (sceneCount === 1 ? "" : "s") +
-      " detected · manual focus applied · fetching MP4…";
-    stage = "Fetching rendered MP4";
-    const downloadResponse = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
-      headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
-    });
-    if (!downloadResponse.ok) {
-      const body = await downloadResponse.json().catch(() => ({}));
-      throw new Error(body.detail || "Download request failed (HTTP " + downloadResponse.status + ").");
-    }
-    const downloadUrl = URL.createObjectURL(await downloadResponse.blob());
-    const player = document.createElement("video");
-    player.className = "highlight-player rendered-player";
-    player.controls = true;
-    player.playsInline = true;
-    player.preload = "metadata";
-    player.src = downloadUrl;
-    const result = document.createElement("div"); result.className = "render-result";
-    result.append(player);
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = "clipforge-" + clip.id + ".mp4";
-    link.className = "button button-secondary";
-    link.textContent = "Download MP4";
-    result.append(link);
-    progress.replaceWith(result);
-    button.textContent = "Rendered ✓";
-    button.disabled = false;
-    button.classList.add("is-ready");
-    stageLabels.forEach(label => label.classList.add("done"));
-    toast("Clip rendered");
+    status.remove();
+    player.classList.add("is-ready");
+    player.dataset.objectUrl = url;
   } catch (error) {
-    progress.classList.add("is-error");
-    progress.querySelector("strong").textContent = "RENDER FAILED";
-    progress.querySelector("small").textContent = stage + ": " + error.message;
-    button.disabled = false; button.textContent = "Retry render";
-    toast(stage + ": " + error.message);
-  } finally {
-    clearInterval(stageTimer);
+    status.classList.add("is-error");
+    status.textContent = "Could not prepare this clip: " + error.message;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "button button-secondary";
+    retry.textContent = "Retry MP4 + captions";
+    retry.addEventListener("click", () => {
+      retry.remove();
+      status.classList.remove("is-error");
+      prepareClipForPlayback(clip, player, status);
+    }, { once: true });
+    status.append(retry);
   }
 }
 function formatTime(seconds) {
