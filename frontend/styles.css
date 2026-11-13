@@ -681,3 +681,26 @@ footer{border-color:#40583b;color:#9aaf91}
 .upload-panel:after{content:"";position:absolute;right:17px;bottom:17px;width:10px;height:10px;background:#79d34b;box-shadow:10px 0 #79d34b,0 10px #79502f,10px 10px #98643a;opacity:.65;pointer-events:none}
 @media(max-width:520px){.minimal-hero:before{left:1%;transform:scale(.75)}.minimal-hero:after{right:2%;transform:scale(.75)}}
 @media(prefers-reduced-motion:reduce){.voxel-block{transform:none}}
+
+
+/* Step 1: external-link downloader activity indicator */
+.external-download-progress{display:grid;gap:11px;margin-top:12px;padding:14px;border:2px solid #547748;background:linear-gradient(145deg,#203522,#121b14);box-shadow:3px 3px 0 #080d08}
+.external-download-progress[hidden]{display:none}
+.external-download-head{display:flex;align-items:center;gap:10px;min-width:0}
+.external-download-head>div{display:grid;gap:4px;flex:1;min-width:0}
+.external-download-head strong{font:10px 'Space Mono',monospace;letter-spacing:.07em;color:#b8f28e}
+.external-download-head small{font-size:10px;line-height:1.45;color:#b0c5a8}
+.external-download-live{font:8px 'Space Mono',monospace;letter-spacing:.12em;color:#79d34b}
+.external-download-spinner{width:24px;height:24px;flex:none;border:2px solid #496343;border-top-color:#79d34b;border-radius:50%;animation:externalSpin .8s linear infinite}
+.external-download-track{height:7px;overflow:hidden;border:1px solid #496343;background:#30472d}
+.external-download-track span{display:block;width:34%;height:100%;background:linear-gradient(90deg,#4d9d35,#9ce879);box-shadow:0 0 12px #79d34b;animation:externalSweep 1.3s ease-in-out infinite}
+.external-download-foot{display:flex;justify-content:space-between;gap:10px;color:#9aaf91;font:8px 'Space Mono',monospace;letter-spacing:.1em}
+.external-download-progress.is-complete{border-color:#79d34b}
+.external-download-progress.is-complete .external-download-spinner{border-color:#79d34b;border-top-color:transparent;animation:none}
+.external-download-progress.is-complete .external-download-track span{width:100%;animation:none}
+.external-download-progress.is-error{border-color:#b45b5b;background:linear-gradient(145deg,#321d1d,#171616)}
+.external-download-progress.is-error .external-download-head strong,.external-download-progress.is-error .external-download-head small{color:#ffb2a8}
+.external-download-progress.is-error .external-download-spinner{border-color:#b45b5b;border-top-color:#ff9a8e}
+@keyframes externalSpin{to{transform:rotate(360deg)}}
+@keyframes externalSweep{0%{transform:translateX(-115%)}100%{transform:translateX(310%)}}
+@media(prefers-reduced-motion:reduce){.external-download-spinner,.external-download-track span{animation:none}}
