@@ -118,6 +118,24 @@
         </div>
         <p class="hint">Choose the duration range and output shape before finding highlights.</p>
       </div>
+      <div class="clip-settings caption-settings">
+        <div class="settings-heading"><strong>ANIMATED CAPTIONS</strong><span>WORD-BY-WORD HIGHLIGHT</span></div>
+        <label class="caption-toggle"><input id="caption-enabled" type="checkbox" checked> Burn animated captions into rendered clips</label>
+        <div class="settings-grid">
+          <label>Caption theme
+            <select id="caption-style">
+              <option value="bold-pop" selected>Bold Pop · white + lime highlight</option>
+              <option value="creator-yellow">Creator · white + yellow highlight</option>
+              <option value="clean">Clean · minimal white</option>
+            </select>
+          </label>
+          <label>Caption position
+            <select id="caption-position"><option value="bottom" selected>Lower third</option><option value="top">Upper third</option></select>
+          </label>
+        </div>
+        <div id="caption-preview" class="caption-preview theme-bold-pop">THIS IS YOUR CAPTION STYLE</div>
+        <p class="hint">Captions use your Whisper transcript and highlight each word in sync with speech. Captions are optional and are burned into the exported MP4.</p>
+      </div>
       <div class="button-stack">
         <button id="process-button" class="button button-primary" disabled>Generate clips <span>✦</span></button>
       </div>
