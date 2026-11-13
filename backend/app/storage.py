@@ -110,8 +110,22 @@ def get_media(location: str, destination: str | Path) -> Path:
     key = location[len("b2://"):]
     target = Path(destination)
     target.parent.mkdir(parents=True, exist_ok=True)
-    client.download_file(B2_BUCKET_NAME, key, str(target))
-    return target
+
+    # download_file() performs HeadObject first. Use GetObject directly so
+    # downloads only require the B2 read-file permission.
+    try:
+        response = client.get_object(Bucket=B2_BUCKET_NAME, Key=key)
+        with target.open("wb") as output:
+            for chunk in response["Body"].iter_chunks(chunk_size=1024 * 1024):
+                if chunk:
+                    output.write(chunk)
+        return target
+    except Exception as exc:
+        target.unlink(missing_ok=True)
+        error = getattr(exc, "response", {}).get("Error", {})
+        code = error.get("Code", type(exc).__name__)
+        message = error.get("Message", str(exc))
+        raise RuntimeError(f"Backblaze B2 download failed for key '{key}' ({code}): {message}") from exc
 
 
 def reset_persistent_data() -> dict:
