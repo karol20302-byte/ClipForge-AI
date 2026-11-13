@@ -104,6 +104,8 @@ class TranscriptionRequest(BaseModel):
 
 @app.post("/api/admin/reset")
 def reset_all_data(request: ResetRequest):
+    if not API_KEY:
+        raise HTTPException(503, "Set CLIPFORGE_API_KEY before using the reset endpoint")
     try:
         deleted = reset_persistent_data()
     except Exception as exc:
