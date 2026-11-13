@@ -37,6 +37,9 @@ $("#youtube-use-file").addEventListener("click", () => {
   state.youtubeImportArmed = true;
   $("#video-file").click();
 });
+$("#hero-auto-edit").addEventListener("click", () => {
+  $("#workflow-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+});
 $("#upload-button").addEventListener("click", () => {
   state.youtubeImportArmed = false;
   state.autoGenerateAfterUpload = false;
