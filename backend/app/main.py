@@ -497,16 +497,17 @@ def _build_caption_ass(segments: list[dict], clip_start: float, clip_end: float,
     font_size = 58 if aspect == "9:16" else (46 if aspect == "1:1" else 40)
     alignment = 8 if position == "top" else 2
     margin_v = 110 if position == "top" else (190 if aspect == "9:16" else 90)
+    play_width, play_height = (1920, 1080) if aspect == "16:9" else (1080, 1920)
     header = f"""[Script Info]
 ScriptType: v4.00+
 WrapStyle: 2
 ScaledBorderAndShadow: yes
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: {play_width}
+PlayResY: {play_height}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,{font_size},&H00FFFFFF,{highlight},&HCC000000,&H80000000,{bold},0,1,{outline},{shadow},{alignment},70,70,{margin_v},1
+Style: Default,Arial,{font_size},{highlight},&H00FFFFFF,&HCC000000,&H80000000,{bold},0,1,{outline},{shadow},{alignment},70,70,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
