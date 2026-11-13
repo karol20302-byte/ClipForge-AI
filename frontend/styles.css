@@ -380,3 +380,19 @@ body{background:#050505;color:#f7f7f7}
 footer{max-width:760px;margin:auto}
 @media(min-width:700px){.hero{padding-top:54px;padding-bottom:30px}.showcase-preview{min-height:310px;padding:22px}.showcase-main{height:150px}.thumb{height:85px}}
 @media(max-width:420px){.app-shell{width:calc(100% - 28px)}.hero{padding-top:30px}.hero h1{font-size:36px}.showcase-preview{min-height:220px;padding:13px}.showcase-main{height:95px}.showcase-thumbs{gap:5px}.thumb{height:52px}.hero-cta-row{gap:8px}.hero-cta-row .button{height:54px;font-size:13px}}
+
+
+/* Unified add-video menu */
+.dropzone{position:relative;display:flex;align-items:center;cursor:default}
+.dropzone #video-file{display:none}
+.upload-icon{display:grid;place-items:center;padding:0;cursor:pointer;font:inherit;line-height:1}
+.import-popover{max-width:760px;margin:10px auto 14px;padding:18px;border:1px solid #303030;border-radius:18px;background:#111;box-shadow:0 18px 45px #0008}
+.import-popover[hidden]{display:none}
+.import-popover .settings-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.import-popover label:not(.youtube-permission){display:block;margin:10px 0 7px;color:#bbb;font-size:12px}
+.import-popover .api-row input{min-width:0}
+.import-popover .youtube-preview{margin-top:12px}
+.import-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.import-actions .button{margin:0;min-height:44px}
+.icon-close{width:30px;height:30px;border:1px solid #333;border-radius:50%;background:#202020;color:#fff;font-size:20px;cursor:pointer}
+@media(max-width:420px){.import-popover{padding:14px}.import-actions{grid-template-columns:1fr}.dropzone{min-width:0}}
