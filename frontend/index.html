@@ -47,10 +47,14 @@
       </label>
       <button id="upload-button" class="button button-primary" disabled>Upload video <span>↗</span></button>
       <div class="youtube-import">
-        <label for="youtube-url">YouTube video link</label>
+        <div class="settings-heading"><strong>YOUTUBE → SHORT CLIPS</strong><span>GUIDED IMPORT</span></div>
+        <label for="youtube-url">1. Paste a YouTube link</label>
         <div class="api-row"><input id="youtube-url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=..."><button id="youtube-preview-button" class="button button-quiet" type="button">Preview</button></div>
         <div id="youtube-preview" class="youtube-preview" hidden></div>
-        <p id="youtube-status" class="hint">YouTube links can be previewed here using the official embedded player. To process a video, use a video file you own or are authorized to edit: download your own upload through YouTube Studio, then choose that file above. YouTube's Data API does not provide video-file downloads.</p>
+        <p id="youtube-status" class="hint">Preview the video, then provide its original video file if you own it or have permission to edit it. ClipForge does not extract or bypass YouTube's download controls.</p>
+        <label class="youtube-permission"><input id="youtube-authorized" type="checkbox"> <span>2. I own this video or have permission to download and edit its video file.</span></label>
+        <button id="youtube-use-file" class="button button-primary" type="button">Choose authorized video file →</button>
+        <p class="hint">3. ClipForge uploads your file, transcribes speech, finds and ranks highlights, then prepares clip candidates. You can render each clip afterward.</p>
       </div>
       <div class="import-divider"><span>OPTIONAL · IMPORT AN AUTHORIZED SOURCE</span></div>
       <div class="source-import">
