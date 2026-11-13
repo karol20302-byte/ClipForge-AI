@@ -266,15 +266,20 @@ function renderClips() {
 }
 async function renderClip(clip, aspect, button) {
   button.disabled = true; button.textContent = "Rendering…";
+  let stage = "Sending render request";
   try {
     await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ start: clip.start, end: clip.end, aspect })
     });
+    stage = "Fetching rendered MP4";
     const downloadResponse = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
       headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
     });
-    if (!downloadResponse.ok) throw new Error("Download failed. Check your API key and try again.");
+    if (!downloadResponse.ok) {
+      const body = await downloadResponse.json().catch(() => ({}));
+      throw new Error(body.detail || "Download request failed (HTTP " + downloadResponse.status + ").");
+    }
     const downloadUrl = URL.createObjectURL(await downloadResponse.blob());
     const link = document.createElement("a");
     link.href = downloadUrl;
@@ -288,7 +293,7 @@ async function renderClip(clip, aspect, button) {
     toast("Clip rendered");
   } catch (error) {
     button.disabled = false; button.textContent = "Retry render";
-    toast(error.message);
+    toast(stage + ": " + error.message);
   }
 }
 function formatTime(seconds) {
