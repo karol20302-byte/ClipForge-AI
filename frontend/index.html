@@ -74,67 +74,39 @@
     <section class="panel workflow-panel">
       <div class="section-heading"><div><p class="eyebrow">STEP 02</p><h2>Find highlights</h2></div><span class="step-number">02</span></div>
       <div class="video-summary" id="video-summary"><span class="summary-dot"></span><span>No video uploaded yet</span></div>
-      <div class="clip-settings">
-        <div class="settings-heading"><strong>SPEECH TRANSCRIPTION</strong><span>MULTILINGUAL WHISPER</span></div>
+      <div class="clip-settings compact-controls">
+        <div class="settings-heading"><strong>QUICK SETTINGS</strong><span>OPTIONAL</span></div>
         <div class="settings-grid">
-          <label>Spoken language
+          <label>Language
             <select id="transcription-language">
-              <option value="auto" selected>Auto detect</option>
-              <option value="en">English</option>
-              <option value="ml">Malayalam</option>
-              <option value="hi">Hindi</option>
-              <option value="ta">Tamil</option>
-              <option value="kn">Kannada</option>
-              <option value="te">Telugu</option>
-              <option value="bn">Bengali</option>
-              <option value="mr">Marathi</option>
-              <option value="ur">Urdu</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="ar">Arabic</option>
-              <option value="pt">Portuguese</option>
-              <option value="ru">Russian</option>
-              <option value="ja">Japanese</option>
-              <option value="ko">Korean</option>
-              <option value="zh">Chinese</option>
+              <option value="auto" selected>Auto detect</option><option value="en">English</option><option value="ml">Malayalam</option><option value="hi">Hindi</option><option value="ta">Tamil</option><option value="kn">Kannada</option><option value="te">Telugu</option><option value="bn">Bengali</option><option value="mr">Marathi</option><option value="ur">Urdu</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ar">Arabic</option><option value="pt">Portuguese</option><option value="ru">Russian</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option>
             </select>
           </label>
-          <label>Transcript output
-            <select id="transcription-task">
-              <option value="transcribe" selected>Original spoken language</option>
-              <option value="translate">Translate to English</option>
-            </select>
+          <label>Transcript
+            <select id="transcription-task"><option value="transcribe" selected>Original language</option><option value="translate">Translate to English</option></select>
+          </label>
+          <label>Min. clip length
+            <select id="min-duration"><option value="15">15 sec</option><option value="20">20 sec</option><option value="30" selected>30 sec</option><option value="45">45 sec</option></select>
+          </label>
+          <label>Max. clip length
+            <select id="max-duration"><option value="30">30 sec</option><option value="45">45 sec</option><option value="60" selected>60 sec</option><option value="90">90 sec</option><option value="120">120 sec</option><option value="180">180 sec</option></select>
+          </label>
+          <label>Video format
+            <select id="clip-ratio"><option value="9:16" selected>Vertical 9:16</option><option value="1:1">Square 1:1</option><option value="16:9">Landscape 16:9</option></select>
+          </label>
+          <label>Export quality
+            <select id="render-quality"><option value="standard">Standard · smaller file</option><option value="high" selected>High · recommended</option><option value="maximum">Maximum · larger file</option></select>
           </label>
         </div>
-        <p class="hint">Auto detect is recommended. Choose a language manually if the audio is being misidentified. Translation creates English text; original-language transcription keeps the spoken language.</p>
       </div>
-      <div class="clip-settings">
-        <div class="settings-heading"><strong>CLIP CUSTOMIZATION</strong><span>SET BEFORE GENERATION</span></div>
+      <div class="clip-settings caption-settings compact-captions">
+        <div class="settings-heading"><strong>CAPTIONS</strong><span>OPTIONAL</span></div>
+        <label class="caption-toggle"><input id="caption-enabled" type="checkbox" checked> Add animated transcript captions</label>
         <div class="settings-grid">
-          <label>Minimum duration (sec)<input id="min-duration" type="number" min="10" max="180" step="5" value="30"></label>
-          <label>Maximum duration (sec)<input id="max-duration" type="number" min="10" max="180" step="5" value="60"></label>
-          <label class="ratio-setting">Clip ratio<select id="clip-ratio"><option value="9:16" selected>Vertical · 9:16</option><option value="1:1">Square · 1:1</option><option value="16:9">Landscape · 16:9</option></select></label>
+          <label>Style<select id="caption-style"><option value="bold-pop" selected>Bold Pop</option><option value="creator-yellow">Yellow highlight</option><option value="clean">Clean</option></select></label>
+          <label>Position<select id="caption-position"><option value="bottom" selected>Bottom</option><option value="top">Top</option></select></label>
         </div>
-        <p class="hint">Choose the duration range and output shape before finding highlights.</p>
-      </div>
-      <div class="clip-settings caption-settings">
-        <div class="settings-heading"><strong>ANIMATED CAPTIONS</strong><span>WORD-BY-WORD HIGHLIGHT</span></div>
-        <label class="caption-toggle"><input id="caption-enabled" type="checkbox" checked> Burn animated captions into rendered clips</label>
-        <div class="settings-grid">
-          <label>Caption theme
-            <select id="caption-style">
-              <option value="bold-pop" selected>Bold Pop · white + lime highlight</option>
-              <option value="creator-yellow">Creator · white + yellow highlight</option>
-              <option value="clean">Clean · minimal white</option>
-            </select>
-          </label>
-          <label>Caption position
-            <select id="caption-position"><option value="bottom" selected>Lower third</option><option value="top">Upper third</option></select>
-          </label>
-        </div>
-        <div id="caption-preview" class="caption-preview theme-bold-pop">THIS IS YOUR CAPTION STYLE</div>
-        <p class="hint">Captions use your Whisper transcript and highlight each word in sync with speech. Captions are optional and are burned into the exported MP4.</p>
+        <div id="caption-preview" class="caption-preview theme-bold-pop">CAPTION PREVIEW</div>
       </div>
       <div class="button-stack">
         <button id="process-button" class="button button-primary" disabled>Generate clips <span>✦</span></button>
