@@ -110,6 +110,9 @@ class RenderRequest(BaseModel):
     start: float
     end: float
     aspect: Literal["9:16", "16:9", "1:1"] = "9:16"
+    captions: bool = True
+    caption_style: Literal["bold-pop", "creator-yellow", "clean"] = "bold-pop"
+    caption_position: Literal["bottom", "top"] = "bottom"
 
 
 class ImportUrlRequest(BaseModel):
@@ -470,6 +473,71 @@ def download_clip(clip_id: str):
     return FileResponse(output, media_type="video/mp4", filename=f"clipforge-{clip_id}.mp4")
 
 
+def _ass_time(seconds: float) -> str:
+    value = max(0.0, float(seconds))
+    hours = int(value // 3600)
+    minutes = int((value % 3600) // 60)
+    whole = int(value % 60)
+    centiseconds = int((value - int(value)) * 100)
+    return f"{hours}:{minutes:02d}:{whole:02d}.{centiseconds:02d}"
+
+
+def _ass_escape_word(value: str) -> str:
+    return value.replace("\\\\", "").replace("{", "(").replace("}", ")").replace("\\n", " ").replace("\\r", " ")
+
+
+def _build_caption_ass(segments: list[dict], clip_start: float, clip_end: float,
+                       aspect: str, style: str, position: str, destination: Path) -> None:
+    themes = {
+        "bold-pop": ("&H006AF3C8", 1, 5, 2),
+        "creator-yellow": ("&H005CE4FF", 1, 5, 2),
+        "clean": ("&H00FFFFFF", 0, 2, 1),
+    }
+    highlight, bold, outline, shadow = themes[style]
+    font_size = 58 if aspect == "9:16" else (46 if aspect == "1:1" else 40)
+    alignment = 8 if position == "top" else 2
+    margin_v = 110 if position == "top" else (190 if aspect == "9:16" else 90)
+    header = f"""[Script Info]
+ScriptType: v4.00+
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+PlayResX: 1080
+PlayResY: 1920
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,{font_size},&H00FFFFFF,{highlight},&HCC000000,&H80000000,{bold},0,1,{outline},{shadow},{alignment},70,70,{margin_v},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    dialogues = []
+    for segment in segments:
+        try:
+            absolute_start = float(segment.get("start", 0))
+            absolute_end = float(segment.get("end", 0))
+        except (TypeError, ValueError):
+            continue
+        start = max(absolute_start, clip_start)
+        end = min(absolute_end, clip_end)
+        words = str(segment.get("text", "")).split()
+        if end <= start or not words:
+            continue
+        duration_cs = max(len(words), int((end - start) * 100))
+        base, remainder = divmod(duration_cs, len(words))
+        karaoke = []
+        for index, word in enumerate(words):
+            safe_word = _ass_escape_word(word)
+            if safe_word:
+                word_cs = base + (1 if index < remainder else 0)
+                karaoke.append(f"{{\\k{word_cs}}}{safe_word}")
+        if karaoke:
+            dialogues.append(
+                f"Dialogue: 0,{_ass_time(start - clip_start)},{_ass_time(end - clip_start)},Default,,0,0,0,,{' '.join(karaoke)}"
+            )
+    destination.write_text(header + "\\n".join(dialogues) + "\\n", encoding="utf-8")
+
+
 @app.post("/api/clips/{clip_id}/render")
 def render_clip(clip_id: str, request: RenderRequest):
     candidate = clip_candidates.get(clip_id)
@@ -488,12 +556,29 @@ def render_clip(clip_id: str, request: RenderRequest):
         raise HTTPException(503, f"Could not retrieve source video from cloud storage: {exc}") from exc
     output = OUTPUT_DIR / f"{clip_id}.mp4"
     dimensions = {"9:16": "1080:1920", "16:9": "1920:1080", "1:1": "1080:1080"}
+    filters = f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=increase,crop={dimensions[request.aspect]}"
+    caption_file = None
+    if request.captions:
+        transcript_segments = job.get("transcript") or []
+        if not transcript_segments:
+            raise HTTPException(409, "Transcribe this source video before rendering captions.")
+        caption_file = OUTPUT_DIR / f"{clip_id}-captions.ass"
+        try:
+            _build_caption_ass(
+                transcript_segments, request.start, request.end, request.aspect,
+                request.caption_style, request.caption_position, caption_file
+            )
+            escaped_ass_path = str(caption_file).replace("\\\\", "\\\\\\\\").replace(":", "\\\\:").replace("'", "\\\\'")
+            filters += f",subtitles='{escaped_ass_path}'"
+        except Exception as exc:
+            caption_file.unlink(missing_ok=True)
+            raise HTTPException(500, f"Could not prepare animated captions: {exc}") from exc
     command = [
         "ffmpeg", "-y", "-ss", str(request.start), "-i", str(source_video),
         "-t", str(request.end - request.start),
-        "-vf", f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=increase,crop={dimensions[request.aspect]}",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-        "-c:a", "aac", "-movflags", "+faststart", str(output),
+        "-vf", filters,
+        "-threads", "1", "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
+        "-c:a", "aac", "-threads", "1", "-movflags", "+faststart", str(output),
     ]
     try:
         subprocess.run(command, check=True, capture_output=True, text=True, timeout=900)
@@ -501,6 +586,9 @@ def render_clip(clip_id: str, request: RenderRequest):
         raise HTTPException(504, "Rendering timed out") from exc
     except subprocess.CalledProcessError as exc:
         raise HTTPException(500, f"FFmpeg render failed: {exc.stderr[-1200:]}") from exc
+    finally:
+        if caption_file:
+            caption_file.unlink(missing_ok=True)
     try:
         candidate["render_path"] = put_media(output, f"renders/{clip_id}.mp4")
         candidate["rendered"] = True
