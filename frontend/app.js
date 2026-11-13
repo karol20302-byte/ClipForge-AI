@@ -67,15 +67,14 @@ $("#upload-button").addEventListener("click", () => {
 $("#media-import").addEventListener("click", importMediaUrl);
 $("#youtube-preview-button").addEventListener("click", previewYouTubeLink);
 $("#process-button").addEventListener("click", runFullWorkflow);
-function updateCaptionPreview() {
-  const preview = $("#caption-preview");
-  if (!preview) return;
-  preview.className = "caption-preview theme-" + $("#caption-style").value;
-  preview.textContent = $("#caption-position").value === "top" ? "CAPTIONS AT THE TOP" : "THIS IS YOUR CAPTION STYLE";
+function randomCaptionSettings() {
+  const styles = ["bold-pop", "creator-yellow", "clean"];
+  const positions = ["bottom", "top"];
+  return {
+    caption_style: styles[Math.floor(Math.random() * styles.length)],
+    caption_position: positions[Math.floor(Math.random() * positions.length)]
+  };
 }
-$("#caption-style").addEventListener("change", updateCaptionPreview);
-$("#caption-position").addEventListener("change", updateCaptionPreview);
-updateCaptionPreview();
 
 $("#reset-data").addEventListener("click", async () => {
   if (!state.apiKey) {
@@ -539,8 +538,7 @@ async function prepareClipForPlayback(clip, player, status) {
         focus_y: 0.5,
         quality: "high",
         edit_style: "creator",
-        caption_style: $("#caption-style")?.value || "bold-pop",
-        caption_position: $("#caption-position")?.value || "bottom"
+        ...randomCaptionSettings()
       })
     });
 
