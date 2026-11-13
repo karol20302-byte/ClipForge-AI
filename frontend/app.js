@@ -37,7 +37,11 @@ $("#youtube-use-file").addEventListener("click", () => {
   state.youtubeImportArmed = true;
   $("#video-file").click();
 });
-$("#upload-button").addEventListener("click", uploadVideo);
+$("#upload-button").addEventListener("click", () => {
+  state.youtubeImportArmed = false;
+  state.autoGenerateAfterUpload = false;
+  uploadVideo();
+});
 $("#media-import").addEventListener("click", importMediaUrl);
 $("#youtube-preview-button").addEventListener("click", previewYouTubeLink);
 $("#process-button").addEventListener("click", runFullWorkflow);
