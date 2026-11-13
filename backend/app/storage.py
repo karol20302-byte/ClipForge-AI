@@ -70,6 +70,7 @@ def init_storage() -> None:
     if d1_configured():
         d1("CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
         d1("CREATE TABLE IF NOT EXISTS clips (id TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
+        d1("CREATE TABLE IF NOT EXISTS workspace_activity (id TEXT PRIMARY KEY, last_activity INTEGER NOT NULL)")
 
 
 def load_state() -> tuple[dict[str, dict], dict[str, dict]]:
@@ -143,3 +144,15 @@ def reset_persistent_data() -> dict:
     d1("DELETE FROM jobs")
     d1("DELETE FROM clips")
     return deleted
+
+
+def get_last_activity() -> int | None:
+    if not d1_configured():
+        return None
+    rows = d1("SELECT last_activity FROM workspace_activity WHERE id = 'global'")
+    return int(rows[0]["last_activity"]) if rows else None
+
+
+def touch_activity(timestamp: int) -> None:
+    if d1_configured():
+        d1("INSERT INTO workspace_activity (id, last_activity) VALUES ('global', ?) ON CONFLICT(id) DO UPDATE SET last_activity=excluded.last_activity", [str(timestamp)])
