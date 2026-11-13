@@ -656,9 +656,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         # timestamps. Allocate each phrase's duration across words, then show
         # short 3–4 word cards rather than one long sentence across the frame.
         duration_cs = max(len(words), int(round((end - start) * 100)))
-        weights = [max(1, len(re.sub(r"[^\\w]", "", word))) for word in words]
+        weights = [max(1, len(re.sub(r"[^\w]", "", word))) for word in words]
         total_weight = sum(weights)
-        word_durations = [max(1, int(round(duration_cs * weight / total_weight))) for weight in weights]
+        remaining_cs = duration_cs - len(words)
+        word_durations = [1 + int(remaining_cs * weight / total_weight) for weight in weights]
         word_durations[-1] += duration_cs - sum(word_durations)
 
         timed_words = []
