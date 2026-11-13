@@ -308,7 +308,7 @@ def _import_video_url_task(video_id: str, raw_url: str):
             "overwrites": False,
             # YouTube's player/API changes often require fixes from yt-dlp nightly.
             # web_embedded currently avoids a known player-response failure on some hosts.
-            "extractor_args": {"youtube": {"player_client": ["web", "mweb", "tv"]}},
+            "extractor_args": {"youtube": {"player_client": ["mweb", "tv", "web_safari"]}},
             "remote_components": ["ejs:github"],
             "verbose": True,
             "quiet": False,
