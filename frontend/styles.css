@@ -91,3 +91,14 @@
 .youtube-preview[hidden]{display:none}
 .youtube-preview iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:12px}
 @media(max-width:420px){.youtube-import .api-row{flex-direction:column}.youtube-import .api-row .button{width:100%}}
+
+
+/* Animated caption controls and live style sample */
+.caption-settings{margin-top:14px}
+.caption-toggle{display:flex;align-items:flex-start;gap:9px;padding:11px;border:1px solid var(--line);border-radius:10px;background:#14161a;color:#c5c9d1;font-size:10px;line-height:1.5}
+.caption-toggle input{flex:0 0 auto;margin:1px 0 0;accent-color:var(--lime)}
+.caption-preview{display:grid;place-items:center;min-height:76px;padding:14px;border-radius:12px;background:linear-gradient(145deg,#252a31,#111317);color:#fff;text-align:center;font:900 17px/1.25 Manrope,Arial,sans-serif;letter-spacing:.035em;text-shadow:2px 3px 0 #000,0 0 10px #000;-webkit-text-stroke:.25px #111}
+.caption-preview.theme-bold-pop{color:#f7f8f2;text-shadow:2px 3px 0 #000,0 0 10px #000}
+.caption-preview.theme-bold-pop::first-line{color:#c8f36a}
+.caption-preview.theme-creator-yellow{color:#ffe45c;text-shadow:2px 3px 0 #000,0 0 10px #000}
+.caption-preview.theme-clean{font-weight:700;letter-spacing:0;color:#fff;text-shadow:0 1px 5px #000}
