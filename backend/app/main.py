@@ -116,7 +116,17 @@ def local_video_path(job: dict) -> Path:
     location = job["path"]
     if location.startswith("b2://"):
         suffix = Path(job.get("filename", "source.mp4")).suffix or ".mp4"
+
+        # The upload endpoint keeps the original file on this Render instance
+        # after sending a copy to B2. Reuse it before attempting a cloud download.
+        original = UPLOAD_DIR / (job["id"] + suffix)
+        if original.is_file() and original.stat().st_size > 0:
+            return original
+
+        # Reuse a previously downloaded copy for transcription, previews and renders.
         cached = UPLOAD_DIR / (job["id"] + "-cached" + suffix)
+        if cached.is_file() and cached.stat().st_size > 0:
+            return cached
         return get_media(location, cached)
     return Path(location)
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
