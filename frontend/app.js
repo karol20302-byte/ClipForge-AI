@@ -16,6 +16,23 @@ $("#save-key").addEventListener("click", () => {
   toast("API key saved in this browser");
 });
 $("#open-import").addEventListener("click", () => $("#video-file").click());
+const unifiedDropzone = $("#unified-dropzone");
+["dragenter", "dragover"].forEach(type => unifiedDropzone.addEventListener(type, event => {
+  event.preventDefault();
+  unifiedDropzone.classList.add("is-dragover");
+}));
+["dragleave", "drop"].forEach(type => unifiedDropzone.addEventListener(type, event => {
+  event.preventDefault();
+  unifiedDropzone.classList.remove("is-dragover");
+}));
+unifiedDropzone.addEventListener("drop", event => {
+  const file = [...(event.dataTransfer?.files || [])].find(item => item.type.startsWith("video/") || /\\.(mp4|mov|mkv|webm|m4v)$/i.test(item.name));
+  if (!file) { setStatus("#upload-status", "Drop a supported video file (MP4, MOV, MKV, WEBM or M4V)."); return; }
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  $("#video-file").files = transfer.files;
+  $("#video-file").dispatchEvent(new Event("change", { bubbles: true }));
+});
 $("#video-file").addEventListener("change", () => {
   const file = $("#video-file").files[0];
   $("#file-label").textContent = file ? file.name : "Drop a video or tap + to add";
