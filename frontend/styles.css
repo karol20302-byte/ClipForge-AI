@@ -744,3 +744,12 @@ footer{border-color:#40583b;color:#9aaf91}
 @keyframes mcHouseWalls{0%{transform:scaleY(.12)}25%{transform:scaleY(.35)}50%{transform:scaleY(.62)}75%,100%{transform:scaleY(1)}}
 @keyframes mcHouseRoof{0%,48%{opacity:0;transform:translateY(8px) scale(.7)}70%{opacity:.55;transform:translateY(3px) scale(.88)}100%{opacity:1;transform:translateY(0) scale(1)}}
 @media(prefers-reduced-motion:reduce){.external-download-spinner:before,.external-download-spinner:after{animation:none;opacity:1;transform:none}}
+
+
+/* Compact Step 2 and medium, consistently rounded vertical clip previews */
+.export-settings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.settings-footnote{margin:10px 2px 0;color:#9b96ad;font-size:10px;line-height:1.5}
+.video-only-card{width:100%;max-width:330px;padding:8px;gap:9px}
+.video-only-card .auto-ready-player{width:100%;max-width:280px;max-height:500px;aspect-ratio:9/16;height:auto;object-fit:contain;border:1px solid #4a4265;border-radius:24px;overflow:hidden;box-shadow:0 12px 30px #0005}
+.clip-preparing{display:grid;place-items:center;width:100%;max-width:280px;aspect-ratio:9/16;border:1px solid #4a4265;border-radius:24px;background:linear-gradient(145deg,#1c1a2a,#101017);color:#c8f36a;text-align:center;padding:18px;font:10px 'DM Mono',monospace;letter-spacing:.1em;line-height:1.7;box-shadow:0 12px 30px #0005}
+@media(max-width:420px){.export-settings-grid{grid-template-columns:1fr 1fr}.video-only-card{max-width:310px}.video-only-card .auto-ready-player,.clip-preparing{max-width:260px}}
