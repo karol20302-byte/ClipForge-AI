@@ -133,27 +133,52 @@ async function api(path, options = {}) {
   }
 }
 
-async function restoreWorkspace() {
+async function prepareFreshWorkspace() {
+  // Preserve only connection settings. Every page load starts with an empty
+  // temporary workspace, including a normal browser refresh or reopening.
+  state.videoId = null;
+  state.clips = [];
+  state.workflowRunning = false;
+  state.renderQueueRunning = false;
+  $("#video-file").value = "";
+  $("#file-label").textContent = "MP4 · MOV · MKV · WEBM";
+  $("#upload-button").disabled = true;
+  $("#process-button").disabled = true;
+  $("#clips-list").innerHTML = '<div class="empty-state"><span>✳</span><strong>Your workspace is fresh</strong><p>Upload a new video to start again.</p></div>';
+  $("#clip-count").textContent = "0 clips";
+  $("#video-summary").innerHTML = '<span class="summary-dot"></span><span>No video uploaded yet</span>';
+  $("#generation-progress").hidden = true;
+  $("#upload-progress").hidden = true;
+
+  // Clear this app's browser session/cache data without removing the saved
+  // backend URL or private API key from localStorage.
+  try { sessionStorage.clear(); } catch (_) {}
+  if ("caches" in window) {
+    try {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    } catch (_) {}
+  }
+
   if (!state.apiKey) {
-    setStatus("#upload-status", "Save your private API key to access your 24-hour workspace.");
+    setStatus("#upload-status", "Fresh workspace is ready. Save your private API key to enable automatic server-side cleanup on refresh.");
     return;
   }
-  setStatus("#upload-status", "Restoring your temporary workspace…");
+
+  setStatus("#upload-status", "Refreshing workspace and clearing temporary files…");
   try {
-    const [videos, clips] = await Promise.all([api("/api/videos"), api("/api/clips")]);
-    const latest = videos.length ? videos[videos.length - 1] : null;
-    state.videoId = latest ? latest.id : null;
-    state.clips = latest ? clips.filter(clip => clip.video_id === latest.id) : [];
-    $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
-    $("#video-summary span:last-child").textContent = latest ? latest.filename : "No video uploaded yet";
-    $("#process-button").disabled = !state.videoId;
-    renderClips();
-    setStatus("#upload-status", "Workspace restored. Your data is retained for 24 hours after your last activity.");
+    const result = await api("/api/admin/prepare-session", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({})
+    });
+    toast("Fresh workspace ready · temporary files cleared");
+    setStatus("#upload-status", "Fresh temporary workspace ready. Previous uploads, clips, transcripts, cached files and project records were cleared.");
   } catch (error) {
-    setStatus("#upload-status", "Could not restore workspace: " + error.message);
+    setStatus("#upload-status", "Workspace cleanup failed: " + error.message + ". Check your API connection and key before uploading.");
   }
 }
-restoreWorkspace();
 function toast(message) {
   const node = $("#toast");
   node.textContent = message;
