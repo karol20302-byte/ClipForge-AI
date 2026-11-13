@@ -649,7 +649,7 @@ def _build_caption_ass(segments: list[dict], clip_start: float, clip_end: float,
                        creator_overlays: bool = False) -> None:
     themes = {
         "bold-pop": ("&H0000DFFF", "&H00FFFFFF", 1, 4, 2),
-        "creator-yellow": ("&H0000DFFF", "&H00FFFFFF", 1, 4, 2),
+        "creator-yellow": ("&H0000FFFF", "&H00FFFFFF", 1, 4, 2),
         "clean": ("&H00FFFFFF", "&H00FFFFFF", 0, 2, 1),
     }
     primary, secondary, bold, outline, shadow = themes[style]
