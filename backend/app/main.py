@@ -478,14 +478,23 @@ def preview_clip(clip_id: str):
     aspect = candidate.get("aspect", "9:16")
     dimensions = {"9:16": "480:854", "16:9": "854:480", "1:1": "480:480"}
     preview_path = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.mp4"
-    command = [
-        "ffmpeg", "-y", "-ss", str(candidate["start"]), "-i", str(source_video),
-        "-t", str(duration), "-vf",
-        f"scale={dimensions.get(aspect, '480:854')}:force_original_aspect_ratio=increase,crop={dimensions.get(aspect, '480:854')}",
-        "-threads", "1", "-c:v", "libx264", "-preset", "ultrafast",
-        "-crf", "30", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(preview_path),
-    ]
+    preview_filters = f"scale={dimensions.get(aspect, '480:854')}:force_original_aspect_ratio=increase,crop={dimensions.get(aspect, '480:854')}"
+    caption_file = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.ass"
     try:
+        transcript_segments = job.get("transcript") or []
+        if transcript_segments:
+            _build_caption_ass(
+                transcript_segments, float(candidate["start"]), float(candidate["end"]),
+                aspect, "bold-pop", "bottom", caption_file
+            )
+            escaped_ass_path = str(caption_file).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+            preview_filters += f",subtitles='{escaped_ass_path}'"
+        command = [
+            "ffmpeg", "-y", "-ss", str(candidate["start"]), "-i", str(source_video),
+            "-t", str(duration), "-vf", preview_filters,
+            "-threads", "1", "-c:v", "libx264", "-preset", "ultrafast",
+            "-crf", "30", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(preview_path),
+        ]
         subprocess.run(command, check=True, capture_output=True, text=True, timeout=240)
     except subprocess.TimeoutExpired as exc:
         preview_path.unlink(missing_ok=True)
@@ -493,6 +502,11 @@ def preview_clip(clip_id: str):
     except subprocess.CalledProcessError as exc:
         preview_path.unlink(missing_ok=True)
         raise HTTPException(500, f"Could not create highlight preview: {exc.stderr[-900:]}") from exc
+    except Exception as exc:
+        preview_path.unlink(missing_ok=True)
+        raise HTTPException(500, f"Could not prepare preview captions: {exc}") from exc
+    finally:
+        caption_file.unlink(missing_ok=True)
     return FileResponse(
         preview_path, media_type="video/mp4",
         filename=f"highlight-preview-{clip_id}.mp4",
