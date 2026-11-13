@@ -15,9 +15,12 @@ $("#save-key").addEventListener("click", () => {
   localStorage.setItem("clipforge-key", state.apiKey);
   toast("API key saved in this browser");
 });
+$("#open-import").addEventListener("click", () => { $("#import-popover").hidden = !$("#import-popover").hidden; });
+$("#close-import").addEventListener("click", () => { $("#import-popover").hidden = true; });
 $("#video-file").addEventListener("change", () => {
   const file = $("#video-file").files[0];
-  $("#file-label").textContent = file ? file.name : "Choose a video";
+  $("#file-label").textContent = file ? file.name : "Drop a video or tap + to add";
+  if (file) $("#import-popover").hidden = true;
   $("#upload-button").disabled = !file;
   if (file && state.youtubeImportArmed) {
     state.youtubeImportArmed = false;
@@ -226,13 +229,13 @@ function uploadVideo() {
 }
 
 async function importMediaUrl() {
-  const input = $("#media-url");
+  const input = $("#youtube-url");
   const button = $("#media-import");
   const url = input.value.trim();
-  if (!url) { setStatus("#media-status", "Paste a video URL first."); return; }
+  if (!url) { setStatus("#youtube-status", "Paste a video URL first."); return; }
   button.disabled = true;
   button.textContent = "Starting…";
-  setStatus("#media-status", "Checking the authorized direct video-file link…");
+  setStatus("#youtube-status", "Checking the direct video-file link…");
   try {
     const result = await api("/api/videos/import-url", {
       method: "POST",
@@ -245,13 +248,14 @@ async function importMediaUrl() {
     $("#process-button").disabled = false;
     
     setStatus("#upload-status", "Video imported. Ready to transcribe.");
-    setStatus("#media-status", "Source imported into ClipForge. Next, transcribe audio and detect highlights.");
+    setStatus("#youtube-status", "Video imported. Next, generate clips.");
+    $("#import-popover").hidden = true;
     toast("Video imported successfully");
   } catch (error) {
-    setStatus("#media-status", error.message);
+    setStatus("#youtube-status", error.message);
   } finally {
     button.disabled = false;
-    button.textContent = "Import & prepare";
+    button.textContent = "Import link";
   }
 }
 
