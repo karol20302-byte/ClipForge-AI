@@ -483,7 +483,7 @@ async function renderClip(clip, aspect, focus, button, card) {
     const sceneCount = Number(renderInfo.scene_count || 1);
     progress.querySelector(".render-progress-head small").textContent =
       "Render complete · " + sceneCount + " scene" + (sceneCount === 1 ? "" : "s") +
-      " detected · fetching MP4…";
+      " detected · manual focus applied · fetching MP4…";
     stage = "Fetching rendered MP4";
     const downloadResponse = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
       headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
