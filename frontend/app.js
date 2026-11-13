@@ -403,9 +403,11 @@ function renderClips() {
     const aspect = document.createElement("select"); aspect.setAttribute("aria-label", "Clip aspect ratio");
     [["9:16","Vertical 9:16"],["1:1","Square 1:1"],["16:9","Landscape 16:9"]].forEach(([value,label]) => { const option=document.createElement("option"); option.value=value; option.textContent=label; aspect.append(option); });
     aspect.value = clip.aspect || $("#clip-ratio").value;
+    const focus = document.createElement("select"); focus.setAttribute("aria-label", "Manual framing focus");
+    [["center","Focus: center"],["upper","Focus: upper"],["lower","Focus: lower"],["left","Focus: left"],["right","Focus: right"]].forEach(([value,label]) => { const option=document.createElement("option"); option.value=value; option.textContent=label; focus.append(option); });
     const render = document.createElement("button"); render.className = "button button-primary"; render.textContent = "Render MP4";
-    render.addEventListener("click", () => renderClip(clip, aspect.value, render, card));
-    actions.append(aspect, render);
+    render.addEventListener("click", () => renderClip(clip, aspect.value, focus.value, render, card));
+    actions.append(aspect, focus, render);
     card.append(top, preview, previewButton, excerpt, meta, reason, actions);
     list.append(card);
   });
@@ -445,7 +447,7 @@ async function createHighlightPreview(clip, container, button) {
     toast(error.message);
   }
 }
-async function renderClip(clip, aspect, button, card) {
+async function renderClip(clip, aspect, focus, button, card) {
   button.disabled = true;
   button.textContent = "Rendering…";
   const progress = document.createElement("div");
@@ -470,6 +472,8 @@ async function renderClip(clip, aspect, button, card) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         start: clip.start, end: clip.end, aspect, captions,
+        focus_x: ({ center: 0.5, upper: 0.5, lower: 0.5, left: 0.38, right: 0.62 })[focus],
+        focus_y: ({ center: 0.5, upper: 0.38, lower: 0.62, left: 0.5, right: 0.5 })[focus],
         quality: $("#render-quality").value,
         edit_style: $("#edit-style").value,
         caption_style: $("#caption-style").value,
