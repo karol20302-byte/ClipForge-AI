@@ -291,7 +291,7 @@ def _import_video_url_task(video_id: str, raw_url: str):
         if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
             raise ValueError("The video host must resolve to a public internet address.")
 
-        jobs[video_id]["status"] = "checking"
+        jobs[video_id]["status"] = "downloading"
         destination = UPLOAD_DIR / f"{video_id}.%(ext)s"
         ydl_options = {
             "outtmpl": str(destination),
@@ -313,20 +313,11 @@ def _import_video_url_task(video_id: str, raw_url: str):
             "verbose": True,
             "quiet": False,
         }
-        with yt_dlp.YoutubeDL({**ydl_options, "skip_download": True}) as ydl:
-            info = ydl.extract_info(raw_url, download=False)
-            if not isinstance(info, dict):
-                raise ValueError("The link did not resolve to a single video.")
-            if info.get("is_live"):
-                raise ValueError("Live streams are not supported yet. Use a completed VOD or replay.")
-            if info.get("_type") in {"playlist", "multi_video"} or info.get("entries"):
-                raise ValueError("Playlist links are not supported. Paste one video or VOD link.")
-            size = info.get("filesize") or info.get("filesize_approx")
-            if size and int(size) > MAX_UPLOAD_BYTES:
-                raise ValueError(f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit.")
-            title = str(info.get("title") or "imported-video")[:160]
+        # Skip metadata-only preflight: start the actual download immediately.
+        # yt-dlp enforces max_filesize where supported; the completed file is
+        # checked again below before it is accepted into the workspace.
+        title = "imported-video"
         jobs[video_id]["filename"] = title
-        jobs[video_id]["status"] = "downloading"
         with yt_dlp.YoutubeDL(ydl_options) as ydl:
             ydl.download([raw_url])
         downloaded = [p for p in UPLOAD_DIR.glob(video_id + ".*") if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
