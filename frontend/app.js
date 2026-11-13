@@ -248,7 +248,6 @@ async function importMediaUrl() {
     
     setStatus("#upload-status", "Video imported. Ready to transcribe.");
     setStatus("#youtube-status", "Video imported. Next, generate clips.");
-    $("#import-popover").hidden = true;
     toast("Video imported successfully");
   } catch (error) {
     setStatus("#youtube-status", error.message);
