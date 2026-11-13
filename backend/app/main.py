@@ -777,8 +777,8 @@ def render_clip(clip_id: str, request: RenderRequest):
     scene_cuts = _detect_scene_cuts(source_video, request.start, request.end - request.start)
     # Preserve the entire source frame instead of center-cropping faces and on-screen text.
     filters = (
-        f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=decrease,"
-        f"pad={dimensions[request.aspect]}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1"
+        f"scale={dimensions[export_aspect]}:force_original_aspect_ratio=decrease,"
+        f"pad={dimensions[export_aspect]}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1"
     )
     if request.edit_style == "creator":
         # A restrained punch-in gives the energetic creator-edit feel without
@@ -786,6 +786,22 @@ def render_clip(clip_id: str, request: RenderRequest):
         filters += "," + _creator_punch_filter(
             dimensions[export_aspect], scene_cuts, request.focus_x, request.focus_y
         )
+
+    # Give each clip a repeatable, randomly varied creator-grade treatment.
+    # Scene-cut punch-ins above act as micro-transitions; fades soften clip edges.
+    duration = request.end - request.start
+    presets = [
+        "eq=contrast=1.08:saturation=1.18:brightness=0.01",
+        "eq=contrast=1.12:saturation=0.92,vignette=PI/5",
+        "eq=contrast=1.04:saturation=1.25,unsharp=5:5:0.45:3:3:0",
+        "eq=contrast=1.06:saturation=1.08:gamma=1.02",
+    ]
+    preset_index = sum(ord(char) for char in clip_id) % len(presets)
+    filters += "," + presets[preset_index]
+    if duration > 0.5:
+        fade_out_start = max(0.18, duration - 0.18)
+        filters += f",fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out_start:.3f}:d=0.18"
+
     caption_file = None
     if request.captions:
         transcript_segments = job.get("transcript") or []
