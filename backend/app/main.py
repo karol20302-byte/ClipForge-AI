@@ -115,6 +115,7 @@ class RenderRequest(BaseModel):
     caption_style: Literal["bold-pop", "creator-yellow", "clean"] = "bold-pop"
     caption_position: Literal["bottom", "top"] = "bottom"
     quality: Literal["standard", "high", "maximum"] = "high"
+    edit_style: Literal["creator", "clean"] = "creator"
 
 
 class ImportUrlRequest(BaseModel):
@@ -482,7 +483,8 @@ def preview_clip(clip_id: str):
     target_size = dimensions.get(aspect, "720:1280")
     preview_filters = (
         f"scale={target_size}:force_original_aspect_ratio=decrease,"
-        f"pad={target_size}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1"
+        f"pad={target_size}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1,"
+        f"crop=iw/1.035:ih/1.035:(iw-ow)/2:(ih-oh)/2,scale={target_size}"
     )
     caption_file = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.ass"
     try:
@@ -557,9 +559,9 @@ def _build_caption_ass(segments: list[dict], clip_start: float, clip_end: float,
         "clean": ("&H00FFFFFF", "&H00FFFFFF", 0, 2, 1),
     }
     primary, secondary, bold, outline, shadow = themes[style]
-    font_size = 64 if aspect == "9:16" else (54 if aspect == "1:1" else 46)
+    font_size = 76 if style == "bold-pop" and aspect == "9:16" else (62 if aspect == "1:1" else 50)
     alignment = 8 if position == "top" else 2
-    margin_v = 175 if position == "top" else (230 if aspect == "9:16" else 110)
+    margin_v = 175 if position == "top" else (300 if aspect == "9:16" else 130)
     play_width, play_height = (1920, 1080) if aspect == "16:9" else (1080, 1920)
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -605,8 +607,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             timed_words.append((word, word_cs, cursor))
             cursor += word_cs
 
-        for offset in range(0, len(timed_words), 4):
-            chunk = timed_words[offset:offset + 4]
+        words_per_card = 3 if style == "bold-pop" else 4
+        for offset in range(0, len(timed_words), words_per_card):
+            chunk = timed_words[offset:offset + words_per_card]
             chunk_start_cs = chunk[0][2]
             chunk_end_cs = chunk[-1][2] + chunk[-1][1]
             karaoke = " ".join(f"{{\\k{word_cs}}}{word}" for word, word_cs, _ in chunk)
@@ -642,6 +645,10 @@ def render_clip(clip_id: str, request: RenderRequest):
         f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=decrease,"
         f"pad={dimensions[request.aspect]}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1"
     )
+    if request.edit_style == "creator":
+        # A restrained punch-in gives the energetic creator-edit feel without
+        # cutting off the source frame or tracking a subject incorrectly.
+        filters += ",crop=iw/1.035:ih/1.035:(iw-ow)/2:(ih-oh)/2,scale=" + dimensions[request.aspect]
     caption_file = None
     if request.captions:
         transcript_segments = job.get("transcript") or []
