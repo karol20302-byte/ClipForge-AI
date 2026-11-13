@@ -43,24 +43,26 @@
         <h2>Bring your video. <span>We’ll find the moments.</span></h2>
         <p>Paste a supported video link or upload a file. ClipForge will prepare it for AI highlights, captions and social-ready edits.</p>
       </div>
-      <div class="unified-import">
+      <div class="unified-import" id="unified-import">
+        <div class="unified-dropzone" id="unified-dropzone">
+          <span class="drop-pixel" aria-hidden="true">✦ ▧ ✧</span>
+          <strong>Drop your video here</strong>
+          <span class="unified-drop-hint">or choose a file, or paste a video link below</span>
+          <button id="open-import" class="button button-secondary" type="button"><span class="pixel-plus">＋</span> Browse files</button>
+          <span id="file-label" class="selected-file">MP4 · MOV · MKV · WEBM</span>
+          <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.m4v">
+        </div>
         <div class="unified-link-row">
           <span class="link-pixel" aria-hidden="true">↗</span>
-          <input id="youtube-url" type="url" inputmode="url" placeholder="Paste a video link (YouTube or direct MP4 URL)" aria-label="Paste a video link">
-          <button id="media-import" class="button button-primary" type="button">Import link</button>
+          <input id="youtube-url" type="url" inputmode="url" placeholder="Or paste a video URL here…" aria-label="Paste a video link">
+          <button id="media-import" class="button button-primary" type="button">Use link</button>
         </div>
         <div id="youtube-preview" class="youtube-preview" hidden></div>
         <p id="youtube-status" class="hint">Direct HTTPS video-file links can be imported. YouTube links can be previewed; to edit one, select your authorized video file.</p>
-        <div class="unified-divider"><span>OR</span></div>
-        <div class="unified-file-row">
-          <button id="open-import" class="button button-secondary" type="button"><span class="pixel-plus">＋</span> Choose video file</button>
-          <span id="file-label">MP4 · MOV · MKV · WEBM</span>
-          <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.m4v">
-        </div>
         <label class="youtube-permission unified-permission"><input id="youtube-authorized" type="checkbox"> <span>I own this video or have permission to edit it.</span></label>
         <div class="unified-actions">
-          <button id="youtube-preview-button" class="button button-quiet" type="button">Preview link</button>
-          <button id="youtube-use-file" class="button button-quiet" type="button">Use selected file for YouTube</button>
+          <button id="youtube-preview-button" class="button button-quiet" type="button">Preview YouTube link</button>
+          <button id="youtube-use-file" class="button button-quiet" type="button">Choose authorized YouTube file</button>
         </div>
       </div>
       <div class="hero-cta-row">
