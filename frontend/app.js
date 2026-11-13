@@ -24,6 +24,43 @@ $("#upload-button").addEventListener("click", uploadVideo);
 $("#media-import").addEventListener("click", importMediaUrl);
 $("#process-button").addEventListener("click", runFullWorkflow);
 
+$("#reset-data").addEventListener("click", async () => {
+  if (!state.apiKey) {
+    toast("Save your private API key before resetting");
+    return;
+  }
+  const confirmation = window.prompt('This permanently deletes ALL stored videos, rendered clips, transcripts and project records. Type RESET ALL CLIPFORGE DATA to continue:');
+  if (confirmation !== "RESET ALL CLIPFORGE DATA") {
+    if (confirmation !== null) toast("Reset cancelled: confirmation did not match");
+    return;
+  }
+  const button = $("#reset-data");
+  button.disabled = true;
+  button.textContent = "Resetting…";
+  try {
+    const result = await api("/api/admin/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmation })
+    });
+    state.videoId = null;
+    state.clips = [];
+    $("#clips-list").innerHTML = '<div class="empty-state"><span>✳</span><strong>Your workspace is clear</strong><p>Upload a new video to start again.</p></div>';
+    $("#clip-count").textContent = "0 clips";
+    $("#video-summary").innerHTML = '<span class="summary-dot"></span><span>No video uploaded yet</span>';
+    $("#process-button").disabled = true;
+    $("#video-file").value = "";
+    $("#file-label").textContent = "Choose a video";
+    setStatus("#upload-status", "All project data has been cleared.");
+    toast("Reset complete. Deleted " + result.deleted_cloud_objects.uploads + " upload objects and " + result.deleted_cloud_objects.renders + " render objects.");
+  } catch (error) {
+    toast("Reset failed: " + error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Reset all project data";
+  }
+});
+
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (state.apiKey) headers.set("X-API-Key", state.apiKey);
