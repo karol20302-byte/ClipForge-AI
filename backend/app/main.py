@@ -477,9 +477,13 @@ def preview_clip(clip_id: str):
     if duration <= 0 or duration > 180:
         raise HTTPException(422, "Invalid preview duration")
     aspect = candidate.get("aspect", "9:16")
-    dimensions = {"9:16": "480:854", "16:9": "854:480", "1:1": "480:480"}
+    dimensions = {"9:16": "720:1280", "16:9": "1280:720", "1:1": "720:720"}
     preview_path = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.mp4"
-    preview_filters = f"scale={dimensions.get(aspect, '480:854')}:force_original_aspect_ratio=increase,crop={dimensions.get(aspect, '480:854')}"
+    target_size = dimensions.get(aspect, "720:1280")
+    preview_filters = (
+        f"scale={target_size}:force_original_aspect_ratio=decrease,"
+        f"pad={target_size}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1"
+    )
     caption_file = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.ass"
     try:
         transcript_segments = job.get("transcript") or []
@@ -493,8 +497,9 @@ def preview_clip(clip_id: str):
         command = [
             "ffmpeg", "-y", "-ss", str(candidate["start"]), "-i", str(source_video),
             "-t", str(duration), "-vf", preview_filters,
-            "-threads", "1", "-c:v", "libx264", "-preset", "ultrafast",
-            "-crf", "30", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(preview_path),
+            "-threads", "1", "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", "24", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(preview_path),
         ]
         subprocess.run(command, check=True, capture_output=True, text=True, timeout=240)
     except subprocess.TimeoutExpired as exc:
