@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel, HttpUrl
+import yt_dlp
 
 from app.highlight_detector import detect_highlights
 from app.storage import get_last_activity, get_media, init_storage, load_state, put_media, reset_persistent_data, save_clip, save_job, touch_activity
@@ -277,74 +278,81 @@ async def upload_video(file: UploadFile = File(...)):
 
 @app.post("/api/videos/import-url")
 def import_video_url(request: ImportUrlRequest):
-    from urllib.parse import urlparse, unquote
+    """Import a public video/VOD URL supported by yt-dlp, plus direct media URLs."""
+    from urllib.parse import urlparse
 
-    parsed = urlparse(request.url.strip())
+    raw_url = request.url.strip()
+    parsed = urlparse(raw_url)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
-        raise HTTPException(422, "Use a public HTTPS direct video-file URL.")
+        raise HTTPException(422, "Use a public HTTPS video or VOD URL.")
     hostname = parsed.hostname.lower().rstrip(".")
-    if hostname in {"localhost", "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}:
-        raise HTTPException(422, "This field accepts direct media-file URLs, not YouTube watch links.")
-    suffix = Path(unquote(parsed.path)).suffix.lower()
-    if suffix not in ALLOWED_EXTENSIONS:
-        raise HTTPException(415, "The URL must point directly to MP4, MOV, MKV, WEBM, or M4V.")
+    if hostname in {"localhost", "youtube.com.evil", "127.0.0.1"}:
+        raise HTTPException(422, "This host is not allowed.")
     try:
         addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
-        if not addresses:
-            raise ValueError("No address found")
-        for address in addresses:
-            ip = ipaddress.ip_address(address[4][0])
-            if not ip.is_global:
-                raise ValueError("Non-public address")
+        if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+            raise ValueError("Host is not public")
     except Exception as exc:
-        raise HTTPException(422, "The media host must resolve to a public internet address.") from exc
+        raise HTTPException(422, "The video host must resolve to a public internet address.") from exc
 
-    class NoRedirect(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-
-    opener = urllib.request.build_opener(NoRedirect)
     video_id = str(uuid.uuid4())
-    destination = UPLOAD_DIR / f"{video_id}{suffix}"
-    total = 0
+    destination = UPLOAD_DIR / f"{video_id}.%(ext)s"
+    ydl_options = {
+        "outtmpl": str(destination),
+        "format": "best[ext=mp4]/best",
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "no_warnings": True,
+        "quiet": True,
+        "socket_timeout": 25,
+        "retries": 2,
+        "fragment_retries": 2,
+        "max_filesize": MAX_UPLOAD_BYTES,
+        "restrictfilenames": True,
+        "overwrites": False,
+    }
     try:
-        req = urllib.request.Request(request.url.strip(), headers={"User-Agent": "ClipForgeAI/1.0"})
-        with opener.open(req, timeout=30) as response:
-            content_type = response.headers.get_content_type()
-            if content_type not in {"video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "application/octet-stream"}:
-                raise HTTPException(415, "The URL did not return a supported video file.")
-            length = response.headers.get("Content-Length", "")
-            if length.isdigit() and int(length) > MAX_UPLOAD_BYTES:
-                raise HTTPException(413, f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit")
-            with destination.open("wb") as out:
-                while chunk := response.read(1024 * 1024):
-                    total += len(chunk)
-                    if total > MAX_UPLOAD_BYTES:
-                        raise HTTPException(413, f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit")
-                    out.write(chunk)
+        with yt_dlp.YoutubeDL({**ydl_options, "skip_download": True}) as ydl:
+            info = ydl.extract_info(raw_url, download=False)
+            if not isinstance(info, dict):
+                raise ValueError("The link did not resolve to a single video.")
+            if info.get("is_live"):
+                raise ValueError("Live streams are not supported yet. Use a completed VOD or replay.")
+            if info.get("_type") in {"playlist", "multi_video"} or info.get("entries"):
+                raise ValueError("Playlist links are not supported. Paste one video or VOD link.")
+            if info.get("filesize") and int(info["filesize"]) > MAX_UPLOAD_BYTES:
+                raise ValueError(f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit.")
+            title = str(info.get("title") or "imported-video")[:160]
+        with yt_dlp.YoutubeDL(ydl_options) as ydl:
+            ydl.download([raw_url])
+        downloaded = [p for p in UPLOAD_DIR.glob(video_id + ".*") if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
+        if not downloaded:
+            raise ValueError("The source did not produce a downloadable video file.")
+        source = max(downloaded, key=lambda p: p.stat().st_size)
+        if source.stat().st_size == 0:
+            raise ValueError("The downloaded video is empty.")
+        if source.stat().st_size > MAX_UPLOAD_BYTES:
+            source.unlink(missing_ok=True)
+            raise ValueError(f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit.")
     except HTTPException:
-        destination.unlink(missing_ok=True)
         raise
-    except urllib.error.HTTPError as exc:
-        destination.unlink(missing_ok=True)
-        raise HTTPException(502, f"Media host returned HTTP {exc.code}; redirects are not followed.") from exc
     except Exception as exc:
-        destination.unlink(missing_ok=True)
-        raise HTTPException(502, f"Could not import the media URL: {exc}") from exc
-    if total == 0:
-        destination.unlink(missing_ok=True)
-        raise HTTPException(400, "The media URL returned an empty file")
+        for item in UPLOAD_DIR.glob(video_id + ".*"):
+            item.unlink(missing_ok=True)
+        message = str(exc)
+        if "Unsupported URL" in message or "No suitable extractor" in message:
+            raise HTTPException(422, "This platform/link is not supported by the current yt-dlp version.") from exc
+        raise HTTPException(502, f"Could not import this video: {message[:500]}") from exc
 
-    filename = Path(unquote(parsed.path)).name or f"imported-video{suffix}"
     jobs[video_id] = {
         "id": video_id,
-        "filename": filename,
-        "path": put_media(destination, f"uploads/{video_id}{suffix}"),
+        "filename": f"{title}{source.suffix}",
+        "path": put_media(source, f"uploads/{video_id}{source.suffix}"),
         "status": "uploaded",
         "transcript": None,
     }
     save_job(jobs[video_id])
-    return {"id": video_id, "filename": filename, "status": "uploaded"}
+    return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "uploaded", "source": "video-url"}
 
 
 @app.get("/api/videos")
