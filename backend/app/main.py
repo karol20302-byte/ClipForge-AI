@@ -11,6 +11,7 @@ import socket
 import subprocess
 import tempfile
 import time
+from threading import BoundedSemaphore
 import urllib.error
 import urllib.request
 import uuid
@@ -48,6 +49,54 @@ app.add_middleware(
 
 jobs: dict[str, dict] = {}
 clip_candidates: dict[str, dict] = {}
+_FFMPEG_LOCK = BoundedSemaphore(1)
+
+
+def _run_ffmpeg(command: list[str], timeout: int, task: str):
+    if not _FFMPEG_LOCK.acquire(blocking=False):
+        raise HTTPException(503, "Another video task is using the renderer. Please retry in a moment.")
+    try:
+        return subprocess.run(command, check=True, capture_output=True, text=True, timeout=timeout)
+    finally:
+        _FFMPEG_LOCK.release()
+
+
+def _detect_scene_cuts(source: Path, start: float, duration: float) -> list[float]:
+    """Return scene-change timestamps relative to the requested clip."""
+    if duration <= 1.0:
+        return []
+    command = [
+        "ffmpeg", "-hide_banner", "-ss", str(start), "-i", str(source),
+        "-t", str(duration), "-vf", "select='gt(scene,0.28)',metadata=print",
+        "-an", "-f", "null", "-",
+    ]
+    try:
+        result = _run_ffmpeg(command, timeout=45, task="scene analysis")
+        stamps = [float(value) for value in re.findall(r"pts_time:([0-9]+(?:\.[0-9]+)?)", result.stderr)]
+        cuts: list[float] = []
+        for stamp in stamps:
+            if 0.35 < stamp < duration - 0.35 and (not cuts or stamp - cuts[-1] > 0.45):
+                cuts.append(round(stamp, 3))
+            if len(cuts) >= 8:
+                break
+        return cuts
+    except Exception:
+        return []
+
+
+def _creator_punch_filter(dimensions: str, scene_cuts: list[float]) -> str:
+    if scene_cuts:
+        pulses = [
+            f"if(between(t\\,{cut:.3f}\\,{cut + 0.42:.3f})\\,sin((t-{cut:.3f})*7.48)\\,0)"
+            for cut in scene_cuts
+        ]
+        zoom = "1+min(0.035\\,0.012*(" + "+".join(pulses) + "))"
+    else:
+        zoom = "1.018"
+    return (
+        f"crop=iw/({zoom}):ih/({zoom}):(iw-ow)/2:(ih-oh)/2:eval=frame,"
+        f"scale={dimensions}"
+    )
 
 
 @app.on_event("startup")
@@ -340,9 +389,10 @@ def transcribe(video_id: str, options: TranscriptionRequest = TranscriptionReque
             audio_path = Path(audio_file.name)
         extract = [
             "ffmpeg", "-y", "-i", str(source_video), "-vn", "-ac", "1",
-            "-ar", "16000", "-b:a", "64k", "-f", "mp3", str(audio_path),
+            "-ar", "16000", "-b:a", "48k", "-threads", "1",
+            "-f", "mp3", str(audio_path),
         ]
-        subprocess.run(extract, check=True, capture_output=True, text=True, timeout=600)
+        _run_ffmpeg(extract, timeout=600, task="audio extraction")
         audio_bytes = audio_path.read_bytes()
         if not audio_bytes:
             raise HTTPException(422, "No audio track was found in this video")
@@ -481,10 +531,11 @@ def preview_clip(clip_id: str):
     dimensions = {"9:16": "720:1280", "16:9": "1280:720", "1:1": "720:720"}
     preview_path = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.mp4"
     target_size = dimensions.get(aspect, "720:1280")
+    scene_cuts = _detect_scene_cuts(source_video, float(candidate["start"]), duration)
     preview_filters = (
         f"scale={target_size}:force_original_aspect_ratio=decrease,"
         f"pad={target_size}:(ow-iw)/2:(oh-ih)/2:color=0x171713,setsar=1,"
-        f"crop=iw/1.035:ih/1.035:(iw-ow)/2:(ih-oh)/2,scale={target_size}"
+        + _creator_punch_filter(target_size, scene_cuts)
     )
     caption_file = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.ass"
     try:
@@ -503,7 +554,7 @@ def preview_clip(clip_id: str):
             "-crf", "24", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(preview_path),
         ]
-        subprocess.run(command, check=True, capture_output=True, text=True, timeout=240)
+        _run_ffmpeg(command, timeout=240, task="highlight preview")
     except subprocess.TimeoutExpired as exc:
         preview_path.unlink(missing_ok=True)
         raise HTTPException(504, "Highlight preview timed out. Try rendering the clip directly.") from exc
@@ -598,11 +649,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         # timestamps. Allocate each phrase's duration across words, then show
         # short 3–4 word cards rather than one long sentence across the frame.
         duration_cs = max(len(words), int(round((end - start) * 100)))
-        base_cs, remainder_cs = divmod(duration_cs, len(words))
-        word_durations = [
-            base_cs + (1 if index < remainder_cs else 0)
-            for index in range(len(words))
-        ]
+        weights = [max(1, len(re.sub(r"[^\\w]", "", word))) for word in words]
+        total_weight = sum(weights)
+        word_durations = [max(1, int(round(duration_cs * weight / total_weight))) for weight in weights]
+        word_durations[-1] += duration_cs - sum(word_durations)
 
         timed_words = []
         cursor = 0
@@ -679,6 +729,7 @@ def render_clip(clip_id: str, request: RenderRequest):
         raise HTTPException(503, f"Could not retrieve source video from cloud storage: {exc}") from exc
     output = OUTPUT_DIR / f"{clip_id}.mp4"
     dimensions = {"9:16": "1080:1920", "16:9": "1920:1080", "1:1": "1080:1080"}
+    scene_cuts = _detect_scene_cuts(source_video, request.start, request.end - request.start)
     # Preserve the entire source frame instead of center-cropping faces and on-screen text.
     filters = (
         f"scale={dimensions[request.aspect]}:force_original_aspect_ratio=decrease,"
@@ -687,7 +738,7 @@ def render_clip(clip_id: str, request: RenderRequest):
     if request.edit_style == "creator":
         # A restrained punch-in gives the energetic creator-edit feel without
         # cutting off the source frame or tracking a subject incorrectly.
-        filters += ",crop=iw/1.035:ih/1.035:(iw-ow)/2:(ih-oh)/2,scale=" + dimensions[request.aspect]
+        filters += "," + _creator_punch_filter(dimensions[request.aspect], scene_cuts)
     caption_file = None
     if request.captions:
         transcript_segments = job.get("transcript") or []
@@ -709,14 +760,15 @@ def render_clip(clip_id: str, request: RenderRequest):
         "ffmpeg", "-y", "-ss", str(request.start), "-i", str(source_video),
         "-t", str(request.end - request.start),
         "-vf", filters,
-        "-threads", "1", "-c:v", "libx264", "-preset", "veryfast",
-        "-crf", {"standard": "23", "high": "19", "maximum": "17"}[request.quality],
+        "-threads", "1", "-filter_threads", "1", "-filter_complex_threads", "1",
+        "-c:v", "libx264", "-preset", "veryfast",
+        "-crf", {"standard": "25", "high": "22", "maximum": "20"}[request.quality],
         "-profile:v", "high", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "160k", "-threads", "1",
         "-movflags", "+faststart", str(output),
     ]
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True, timeout=900)
+        _run_ffmpeg(command, timeout=900, task="final render")
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(504, "Rendering timed out") from exc
     except subprocess.CalledProcessError as exc:
@@ -730,4 +782,12 @@ def render_clip(clip_id: str, request: RenderRequest):
         save_clip(candidate)
     except Exception as exc:
         raise HTTPException(503, f"Clip rendered but cloud storage upload failed: {exc}") from exc
-    return {"clip_id": clip_id, "status": "rendered", "file": str(output)}
+    return {
+        "clip_id": clip_id,
+        "status": "rendered",
+        "file": str(output),
+        "scene_count": len(scene_cuts) + 1,
+        "scene_changes": scene_cuts,
+        "edit_features": ["scene-change analysis", "adaptive punch-in", "transcript captions", "creator callouts", "end card"] if request.edit_style == "creator" else ["safe-fit framing", "transcript captions"],
+        "subject_tracking": "not_available",
+    }
