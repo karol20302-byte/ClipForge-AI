@@ -24,6 +24,29 @@ $("#upload-button").addEventListener("click", uploadVideo);
 $("#media-import").addEventListener("click", importMediaUrl);
 $("#process-button").addEventListener("click", runFullWorkflow);
 
+async function prepareTemporaryWorkspace() {
+  if (!state.apiKey) {
+    setStatus("#upload-status", "Save your private API key, then refresh to start a clean temporary workspace.");
+    return;
+  }
+  $("#upload-button").disabled = true;
+  $("#process-button").disabled = true;
+  setStatus("#upload-status", "Clearing the previous temporary workspace…");
+  try {
+    await api("/api/admin/prepare-session", { method: "POST" });
+    state.videoId = null;
+    state.clips = [];
+    $("#clips-list").innerHTML = '<div class="empty-state"><span>✳</span><strong>Your temporary workspace is ready</strong><p>Upload a video to begin. Data is cleared when you refresh or reopen the page.</p></div>';
+    $("#clip-count").textContent = "0 clips";
+    $("#video-summary").innerHTML = '<span class="summary-dot"></span><span>No video uploaded yet</span>';
+    setStatus("#upload-status", "Temporary workspace ready. Previous uploads, clips, transcripts and metadata were deleted.");
+    toast("Fresh temporary workspace ready");
+  } catch (error) {
+    setStatus("#upload-status", "Could not clear the previous workspace: " + error.message + ". Check your API key and refresh.");
+  }
+}
+prepareTemporaryWorkspace();
+
 $("#reset-data").addEventListener("click", async () => {
   if (!state.apiKey) {
     toast("Save your private API key before resetting");
