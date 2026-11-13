@@ -389,9 +389,9 @@ function renderClips() {
     top.append(title, score);
     const preview = document.createElement("div"); preview.className = "highlight-preview";
     const previewLabel = document.createElement("div"); previewLabel.className = "preview-placeholder";
-    previewLabel.innerHTML = '<span class="preview-play">▶</span><strong>MP4 HIGHLIGHT PREVIEW</strong><small>' + formatTime(clip.start) + ' — ' + formatTime(clip.end) + '</small>';
+    previewLabel.innerHTML = '<span class="preview-play">▶</span><strong>MP4 PREVIEW · TRANSCRIPT CAPTIONS</strong><small>' + formatTime(clip.start) + ' — ' + formatTime(clip.end) + '</small>';
     preview.append(previewLabel);
-    const previewButton = document.createElement("button"); previewButton.className = "button button-secondary preview-button"; previewButton.textContent = "Preview highlight";
+    const previewButton = document.createElement("button"); previewButton.className = "button button-secondary preview-button"; previewButton.textContent = "Generate MP4 + captions";
     previewButton.addEventListener("click", () => createHighlightPreview(clip, preview, previewButton));
     const excerpt = document.createElement("p"); excerpt.className = "clip-excerpt"; excerpt.textContent = clip.transcript_excerpt || "No transcript excerpt available.";
     const meta = document.createElement("div"); meta.className = "clip-meta";
