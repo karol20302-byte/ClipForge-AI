@@ -22,6 +22,7 @@ $("#video-file").addEventListener("change", () => {
 });
 $("#upload-button").addEventListener("click", uploadVideo);
 $("#media-import").addEventListener("click", importMediaUrl);
+$("#youtube-preview-button").addEventListener("click", previewYouTubeLink);
 $("#process-button").addEventListener("click", runFullWorkflow);
 
 $("#reset-data").addEventListener("click", async () => {
@@ -215,6 +216,51 @@ async function importMediaUrl() {
     button.textContent = "Import & prepare";
   }
 }
+
+function previewYouTubeLink() {
+  const input = $("#youtube-url");
+  const status = $("#youtube-status");
+  const container = $("#youtube-preview");
+  let parsed;
+  try { parsed = new URL(input.value.trim()); } catch (_) {
+    status.textContent = "Enter a valid YouTube video link.";
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^www\\./, "");
+  let videoId = "";
+  if (host === "youtu.be") {
+    videoId = parsed.pathname.split("/").filter(Boolean)[0] || "";
+  } else if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com") {
+    if (parsed.pathname === "/watch") videoId = parsed.searchParams.get("v") || "";
+    else {
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      if (["shorts", "embed", "live"].includes(parts[0])) videoId = parts[1] || "";
+    }
+  }
+  if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+    status.textContent = "That link format was not recognized. Use a standard YouTube video, Shorts, or youtu.be link.";
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
+  const frame = document.createElement("iframe");
+  frame.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(videoId);
+  frame.title = "YouTube video preview";
+  frame.loading = "lazy";
+  frame.referrerPolicy = "strict-origin-when-cross-origin";
+  frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+  frame.allowFullscreen = true;
+  frame.style.width = "100%";
+  frame.style.aspectRatio = "16 / 9";
+  frame.style.border = "0";
+  frame.style.borderRadius = "12px";
+  container.replaceChildren(frame);
+  container.hidden = false;
+  status.textContent = "Preview loaded. ClipForge cannot download video bytes from a YouTube link. For a video you own, download the original in YouTube Studio and upload the file above to run transcription and clipping.";
+}
+
 function updateGenerationStep(name, status) {
   const step = $("#generation-step-" + name);
   if (!step) return;
