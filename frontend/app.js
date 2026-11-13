@@ -426,20 +426,26 @@ function renderClips() {
     player.playsInline = true;
     player.preload = "auto";
     player.setAttribute("aria-label", "Vertical clip " + (index + 1));
-    const status = document.createElement("div");
-    status.className = "auto-render-status";
-    status.textContent = "Preparing vertical MP4 with captions…";
-    card.append(player, status);
+    card.append(player);
     list.append(card);
-    jobs.push({ clip, player, status, card });
+    jobs.push({ clip, player, card, index });
   });
 
-  // Keep one render queue per page so repeated UI refreshes cannot overlap FFmpeg jobs.
+  // One shared status keeps Step 3 clean instead of repeating messages on every card.
+  const status = document.createElement("div");
+  status.className = "auto-render-status";
+  status.textContent = "Preparing your clips…";
+  list.prepend(status);
+
   if (state.renderQueueRunning) return;
   state.renderQueueRunning = true;
   (async () => {
     try {
-      for (const job of jobs) await prepareClipForPlayback(job.clip, job.player, job.status);
+      for (let i = 0; i < jobs.length; i++) {
+        status.textContent = "Preparing clips… " + (i + 1) + " of " + jobs.length;
+        await prepareClipForPlayback(jobs[i].clip, jobs[i].player, status);
+      }
+      status.remove();
     } finally {
       state.renderQueueRunning = false;
     }
@@ -448,7 +454,6 @@ function renderClips() {
 
 async function prepareClipForPlayback(clip, player, status) {
   try {
-    status.textContent = "Creating 9:16 MP4 + captions…";
     await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -466,7 +471,6 @@ async function prepareClipForPlayback(clip, player, status) {
       })
     });
 
-    status.textContent = "Loading finished MP4…";
     const response = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
       headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
     });
@@ -490,19 +494,19 @@ async function prepareClipForPlayback(clip, player, status) {
       player.addEventListener("error", failed, { once: true });
       window.setTimeout(() => { cleanup(); reject(new Error("Timed out while preparing the MP4 player.")); }, 45000);
     });
-    status.remove();
     player.classList.add("is-ready");
     player.dataset.objectUrl = url;
   } catch (error) {
     status.classList.add("is-error");
-    status.textContent = "Could not prepare this clip: " + error.message;
+    status.textContent = "Clip preparation failed: " + error.message;
     const retry = document.createElement("button");
     retry.type = "button";
     retry.className = "button button-secondary";
-    retry.textContent = "Retry MP4 + captions";
+    retry.textContent = "Retry";
     retry.addEventListener("click", () => {
       retry.remove();
       status.classList.remove("is-error");
+      status.textContent = "Preparing clip again…";
       prepareClipForPlayback(clip, player, status);
     }, { once: true });
     status.append(retry);
