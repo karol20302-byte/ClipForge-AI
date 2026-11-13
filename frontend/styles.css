@@ -607,3 +607,77 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .pixel-spark span:nth-child(9){background:#d6c5ff;animation-delay:1s}
 @keyframes pixelTwinkle{0%,100%{opacity:.12;transform:scale(.65)}45%{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.pixel-spark span{animation:none;opacity:.7}}
+
+
+/* VOXEL OVERWORLD — Minecraft-inspired block palette and decorative elements */
+:root{
+  color-scheme:dark;
+  --bg:#101710;--panel:#182319;--panel2:#202e20;--line:#40533b;
+  --text:#edf5e8;--muted:#a0b39a;--lime:#79d34b;--lime-dark:#14240f;
+  --pixel-cyan:#55d9e8;--pixel-violet:#a5d86a;
+  --radius:4px;--pixel-shadow:4px 4px 0 #080d08;
+}
+html,body{background-color:#101710;color:var(--text)}
+body{
+ background-image:
+  linear-gradient(#a4d48a0b 1px,transparent 1px),
+  linear-gradient(90deg,#a4d48a0b 1px,transparent 1px),
+  radial-gradient(ellipse at 50% -15%,#315d2c 0,transparent 46%);
+ background-size:24px 24px,24px 24px,auto;
+}
+.topbar{border-color:#557348}
+.brand-mark,.button-primary,.upload-icon{background:#79d34b;color:#10200c;box-shadow:3px 3px 0 #345a29}
+.status-pill,.count-pill,.step-number{border-color:#405a39;color:#c2d8b8}
+.status-pill i,.summary-dot{background:#79d34b;box-shadow:0 0 9px #79d34b88}
+.panel,.clip-card{background:linear-gradient(145deg,#1d2b1d,#141e16);border:2px solid #40583b;box-shadow:var(--pixel-shadow)}
+.connection-panel,.source-import,.video-summary{background:#121b14;border-color:#40583b}
+.unified-import{background:linear-gradient(145deg,#18291a,#111b14);border:2px solid #547748;box-shadow:4px 4px 0 #080d08}
+.unified-dropzone{background:linear-gradient(180deg,#1b3020,#111a13);border:2px dashed #79a963;border-radius:3px}
+.unified-dropzone.is-dragover{border-color:#55d9e8;background:#18302e}
+.unified-link-row{border-color:#3c5839}
+input,select{background:#101a12;border-color:#496343;color:#edf5e8;border-radius:3px}
+input:focus,select:focus{border-color:#55d9e8;box-shadow:0 0 0 2px #55d9e822}
+.button{border-radius:3px;box-shadow:3px 3px 0 #080d08}
+.button-secondary,.button-quiet{background:#29392a;color:#e7f2e1;border:1px solid #5c7851}
+.button-primary:hover{background:#91e85f}
+.hero-pill,.minimal-hero h1 .hero-pill{color:#79d34b}
+.hero-copy,.minimal-hero .hero-copy{color:#b0c5a8}
+.import-kicker,.eyebrow,.settings-heading strong{color:#9ce879}
+.clip-score{color:#9ce879}
+.meta-chip{background:#263829;color:#c4d8bd}
+.empty-state{border:2px dashed #496343;background:#142017}
+.empty-state>span{color:#79d34b}
+.upload-progress,.generation-progress,.render-progress{background:linear-gradient(145deg,#203522,#121b14);border-color:#547748}
+.upload-track,.render-track{background:#30472d;border-color:#496343}
+.upload-fill,.render-track span{background:linear-gradient(90deg,#4d9d35,#9ce879);box-shadow:0 0 12px #79d34b88}
+.generation-core{background:#79d34b;color:#10200c;box-shadow:0 0 20px #79d34b77}
+.generation-orbit{border-color:#79d34b88}
+.generation-orbit:after{background:#b3f58b}
+.generation-step{background:#152117;border-color:#3c5839}
+.generation-step.is-active .step-indicator{background:#79d34b;color:#10200c}
+.caption-preview{background:linear-gradient(145deg,#30452e,#101a12)}
+.highlight-preview{background:radial-gradient(ellipse at 50% 35%,#426b38,#111a13 70%);border-color:#547748}
+.auto-render-status{background:#19281b;border-color:#547748;color:#d8edce}
+footer{border-color:#40583b;color:#9aaf91}
+.toast{background:#9ce879;color:#10200c}
+.pixel-spark span{background:#79d34b}
+.pixel-spark span:nth-child(2),.pixel-spark span:nth-child(6),.pixel-spark span:nth-child(8){background:#55d9e8}
+
+/* Voxel details: grass, dirt, stone and diamond blocks */
+.voxel-landscape{display:flex;justify-content:center;align-items:flex-end;gap:5px;height:35px;margin:0 auto 13px;image-rendering:pixelated}
+.voxel-block{position:relative;width:22px;height:22px;border:2px solid #0b120b;box-shadow:3px 3px 0 #080d08}
+.voxel-block.grass{background:linear-gradient(to bottom,#79c84b 0 28%,#79502f 28% 100%)}
+.voxel-block.dirt{background:repeating-linear-gradient(135deg,#79502f 0 4px,#98643a 4px 7px)}
+.voxel-block.stone{background:repeating-linear-gradient(45deg,#69766b 0 4px,#879187 4px 7px)}
+.voxel-block.diamond{background:repeating-linear-gradient(135deg,#36bfc7 0 4px,#8af4e7 4px 7px)}
+.voxel-block:nth-child(2),.voxel-block:nth-child(4){transform:translateY(-7px)}
+.voxel-block:nth-child(3){transform:translateY(-13px)}
+.pixel-spark{display:none}
+.minimal-hero{padding-top:25px}
+.minimal-hero:before,.minimal-hero:after{position:absolute;content:"";width:13px;height:13px;background:#79d34b;box-shadow:13px 0 #416f32,0 13px #79502f,13px 13px #98643a;opacity:.9;image-rendering:pixelated}
+.minimal-hero:before{left:7%;top:48px}
+.minimal-hero:after{right:8%;top:74px;background:#55d9e8;box-shadow:13px 0 #278d96,0 13px #3bb5bd,13px 13px #a0f4e6}
+.upload-panel{position:relative}
+.upload-panel:after{content:"";position:absolute;right:17px;bottom:17px;width:10px;height:10px;background:#79d34b;box-shadow:10px 0 #79d34b,0 10px #79502f,10px 10px #98643a;opacity:.65;pointer-events:none}
+@media(max-width:520px){.minimal-hero:before{left:1%;transform:scale(.75)}.minimal-hero:after{right:2%;transform:scale(.75)}}
+@media(prefers-reduced-motion:reduce){.voxel-block{transform:none}}
