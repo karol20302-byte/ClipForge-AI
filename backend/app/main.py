@@ -20,6 +20,7 @@ from typing import Literal
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel, HttpUrl
 
 from app.highlight_detector import detect_highlights
@@ -455,6 +456,48 @@ def approve_clip(clip_id: str, request: ApprovalRequest):
     candidate["status"] = "approved" if request.approved else "rejected"
     save_clip(candidate)
     return candidate
+
+
+@app.post("/api/clips/{clip_id}/preview")
+def preview_clip(clip_id: str):
+    candidate = clip_candidates.get(clip_id)
+    if not candidate:
+        raise HTTPException(404, "Clip candidate not found")
+    if candidate.get("status") != "approved":
+        raise HTTPException(409, "Only approved highlights can be previewed")
+    job = jobs.get(candidate["video_id"])
+    if not job:
+        raise HTTPException(404, "Source video record not found")
+    try:
+        source_video = local_video_path(job)
+    except Exception as exc:
+        raise HTTPException(503, f"Could not retrieve source video: {exc}") from exc
+    duration = float(candidate["end"]) - float(candidate["start"])
+    if duration <= 0 or duration > 180:
+        raise HTTPException(422, "Invalid preview duration")
+    aspect = candidate.get("aspect", "9:16")
+    dimensions = {"9:16": "480:854", "16:9": "854:480", "1:1": "480:480"}
+    preview_path = OUTPUT_DIR / f"preview-{uuid.uuid4().hex}.mp4"
+    command = [
+        "ffmpeg", "-y", "-ss", str(candidate["start"]), "-i", str(source_video),
+        "-t", str(duration), "-vf",
+        f"scale={dimensions.get(aspect, '480:854')}:force_original_aspect_ratio=increase,crop={dimensions.get(aspect, '480:854')}",
+        "-threads", "1", "-an", "-c:v", "libx264", "-preset", "ultrafast",
+        "-crf", "30", "-movflags", "+faststart", str(preview_path),
+    ]
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True, timeout=240)
+    except subprocess.TimeoutExpired as exc:
+        preview_path.unlink(missing_ok=True)
+        raise HTTPException(504, "Highlight preview timed out. Try rendering the clip directly.") from exc
+    except subprocess.CalledProcessError as exc:
+        preview_path.unlink(missing_ok=True)
+        raise HTTPException(500, f"Could not create highlight preview: {exc.stderr[-900:]}") from exc
+    return FileResponse(
+        preview_path, media_type="video/mp4",
+        filename=f"highlight-preview-{clip_id}.mp4",
+        background=BackgroundTask(lambda: preview_path.unlink(missing_ok=True)),
+    )
 
 
 @app.get("/api/clips/{clip_id}/download")
