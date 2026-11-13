@@ -228,7 +228,7 @@ function previewYouTubeLink() {
     container.replaceChildren();
     return;
   }
-  const host = parsed.hostname.toLowerCase().replace(/^www\\./, "");
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
   let videoId = "";
   if (host === "youtu.be") {
     videoId = parsed.pathname.split("/").filter(Boolean)[0] || "";
