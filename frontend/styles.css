@@ -134,3 +134,13 @@
 @keyframes renderSweep{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
 @keyframes previewPulse{50%{opacity:.55}}
 @media(prefers-reduced-motion:reduce){.render-spinner,.render-track span,.highlight-preview.is-loading:after{animation:none}}
+
+/* Step 2: compact, simple controls */
+.compact-controls,.compact-captions{padding:12px;margin:10px 0;background:#171a18;border-color:#30372b}
+.compact-controls .settings-heading,.compact-captions .settings-heading{margin-bottom:10px}
+.compact-controls .settings-grid,.compact-captions .settings-grid{gap:9px}
+.compact-controls .settings-grid label,.compact-captions .settings-grid label{gap:5px;font-size:10px}
+.compact-controls select,.compact-captions select{min-height:38px;padding:9px;font-size:11px}
+.compact-captions .caption-preview{min-height:48px;margin-top:9px;font-size:13px}
+.compact-captions .caption-toggle{padding:9px;margin-bottom:9px}
+@media(max-width:420px){.compact-controls .settings-grid,.compact-captions .settings-grid{grid-template-columns:1fr 1fr}}
