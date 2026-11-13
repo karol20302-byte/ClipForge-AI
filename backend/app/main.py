@@ -18,7 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.background import BackgroundTask
@@ -276,42 +276,37 @@ async def upload_video(file: UploadFile = File(...)):
     return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "uploaded"}
 
 
-@app.post("/api/videos/import-url")
-def import_video_url(request: ImportUrlRequest):
-    """Import a public video/VOD URL supported by yt-dlp, plus direct media URLs."""
+def _import_video_url_task(video_id: str, raw_url: str):
+    """Download a video in the background so link submission responds immediately."""
     from urllib.parse import urlparse
 
-    raw_url = request.url.strip()
-    parsed = urlparse(raw_url)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
-        raise HTTPException(422, "Use a public HTTPS video or VOD URL.")
-    hostname = parsed.hostname.lower().rstrip(".")
-    if hostname in {"localhost", "youtube.com.evil", "127.0.0.1"}:
-        raise HTTPException(422, "This host is not allowed.")
     try:
+        parsed = urlparse(raw_url)
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        if parsed.scheme != "https" or not hostname or parsed.username or parsed.password:
+            raise ValueError("Use a public HTTPS video or VOD URL.")
+        if hostname in {"localhost", "youtube.com.evil", "127.0.0.1"}:
+            raise ValueError("This host is not allowed.")
         addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
         if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
-            raise ValueError("Host is not public")
-    except Exception as exc:
-        raise HTTPException(422, "The video host must resolve to a public internet address.") from exc
+            raise ValueError("The video host must resolve to a public internet address.")
 
-    video_id = str(uuid.uuid4())
-    destination = UPLOAD_DIR / f"{video_id}.%(ext)s"
-    ydl_options = {
-        "outtmpl": str(destination),
-        "format": "best[ext=mp4]/best",
-        "merge_output_format": "mp4",
-        "noplaylist": True,
-        "no_warnings": True,
-        "quiet": True,
-        "socket_timeout": 25,
-        "retries": 2,
-        "fragment_retries": 2,
-        "max_filesize": MAX_UPLOAD_BYTES,
-        "restrictfilenames": True,
-        "overwrites": False,
-    }
-    try:
+        jobs[video_id]["status"] = "checking"
+        destination = UPLOAD_DIR / f"{video_id}.%(ext)s"
+        ydl_options = {
+            "outtmpl": str(destination),
+            "format": "best[ext=mp4]/best",
+            "merge_output_format": "mp4",
+            "noplaylist": True,
+            "no_warnings": True,
+            "quiet": True,
+            "socket_timeout": 20,
+            "retries": 1,
+            "fragment_retries": 1,
+            "max_filesize": MAX_UPLOAD_BYTES,
+            "restrictfilenames": True,
+            "overwrites": False,
+        }
         with yt_dlp.YoutubeDL({**ydl_options, "skip_download": True}) as ydl:
             info = ydl.extract_info(raw_url, download=False)
             if not isinstance(info, dict):
@@ -320,9 +315,12 @@ def import_video_url(request: ImportUrlRequest):
                 raise ValueError("Live streams are not supported yet. Use a completed VOD or replay.")
             if info.get("_type") in {"playlist", "multi_video"} or info.get("entries"):
                 raise ValueError("Playlist links are not supported. Paste one video or VOD link.")
-            if info.get("filesize") and int(info["filesize"]) > MAX_UPLOAD_BYTES:
+            size = info.get("filesize") or info.get("filesize_approx")
+            if size and int(size) > MAX_UPLOAD_BYTES:
                 raise ValueError(f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit.")
             title = str(info.get("title") or "imported-video")[:160]
+        jobs[video_id]["filename"] = title
+        jobs[video_id]["status"] = "downloading"
         with yt_dlp.YoutubeDL(ydl_options) as ydl:
             ydl.download([raw_url])
         downloaded = [p for p in UPLOAD_DIR.glob(video_id + ".*") if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
@@ -334,26 +332,48 @@ def import_video_url(request: ImportUrlRequest):
         if source.stat().st_size > MAX_UPLOAD_BYTES:
             source.unlink(missing_ok=True)
             raise ValueError(f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit.")
-    except HTTPException:
-        raise
+        jobs[video_id].update({
+            "filename": f"{title}{source.suffix}",
+            "path": put_media(source, f"uploads/{video_id}{source.suffix}"),
+            "status": "uploaded",
+            "transcript": None,
+        })
+        save_job(jobs[video_id])
     except Exception as exc:
         for item in UPLOAD_DIR.glob(video_id + ".*"):
             item.unlink(missing_ok=True)
-        message = str(exc)
-        if "Unsupported URL" in message or "No suitable extractor" in message:
-            raise HTTPException(422, "This platform/link is not supported by the current yt-dlp version.") from exc
-        raise HTTPException(502, f"Could not import this video: {message[:500]}") from exc
+        jobs[video_id]["status"] = "failed"
+        jobs[video_id]["error"] = str(exc)[:500]
 
+
+@app.post("/api/videos/import-url")
+def import_video_url(request: ImportUrlRequest, background_tasks: BackgroundTasks):
+    """Queue a URL import and return immediately; poll the import status endpoint."""
+    raw_url = request.url.strip()
+    video_id = str(uuid.uuid4())
     jobs[video_id] = {
         "id": video_id,
-        "filename": f"{title}{source.suffix}",
-        "path": put_media(source, f"uploads/{video_id}{source.suffix}"),
-        "status": "uploaded",
+        "filename": "Checking video link…",
+        "path": "",
+        "status": "queued",
         "transcript": None,
+        "source": "video-url",
     }
-    save_job(jobs[video_id])
-    return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "uploaded", "source": "video-url"}
+    background_tasks.add_task(_import_video_url_task, video_id, raw_url)
+    return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "queued", "source": "video-url"}
 
+
+@app.get("/api/videos/{video_id}/import-status")
+def import_video_status(video_id: str):
+    job = jobs.get(video_id)
+    if not job:
+        raise HTTPException(404, "Import job not found")
+    return {
+        "id": video_id,
+        "filename": job.get("filename"),
+        "status": job.get("status"),
+        "error": job.get("error"),
+    }
 
 @app.get("/api/videos")
 def list_videos():
