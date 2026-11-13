@@ -325,3 +325,58 @@ footer{border-top:2px solid var(--line);color:#777568;font:8px 'DM Mono',monospa
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* Opus-inspired black landing page refresh */
+:root{--bg:#050505;--panel:#111;--panel2:#181818;--line:#252525;--text:#f7f7f7;--muted:#999;--lime:#d8ff70;--radius:22px}
+body{background:#050505;color:#f7f7f7}
+.app-shell{width:min(100% - 34px,920px);padding-top:18px}
+.topbar{max-width:760px;margin:0 auto;padding:6px 0 8px}
+.brand-mark{border-radius:50%;background:#f5f5f5;color:#080808}
+.status-pill{border-color:#292929;background:#101010}
+.hero{text-align:center;padding:36px 12px 22px;max-width:760px;margin:auto}
+.hero .eyebrow{color:#858585;font-size:10px;letter-spacing:.11em;margin-bottom:22px}
+.hero h1{font-size:clamp(34px,7.4vw,66px);line-height:1.12;letter-spacing:-.055em;font-weight:800}
+.hero-pill{display:inline-block;color:#d8d8d8!important;background:linear-gradient(100deg,#41494a,#a6aaa5 52%,#293b40);border-radius:999px;padding:1px 18px 6px;margin:4px 0 5px;text-shadow:0 2px 12px #fff5}
+.hero-copy{max-width:570px;margin:17px auto 0;color:#a1a1a1;font-size:clamp(13px,2vw,16px);line-height:1.7}
+.upload-panel{max-width:760px;margin:0 auto 24px;padding:0;background:transparent;border:0;overflow:visible}
+.dropzone{min-height:58px;flex-direction:row;justify-content:flex-start;gap:13px;padding:0 18px;border:1px solid #303030;border-radius:999px;background:#202020;text-align:left;color:#ddd}
+.dropzone strong{font-size:14px;font-weight:500}
+.dropzone>span:last-of-type{display:none}
+.upload-icon{width:22px;height:22px;flex:none;border-radius:50%;background:transparent;color:#eee;border:1px solid #aaa;font-size:16px}
+.hero-cta-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.hero-cta-row .button{height:58px;border-radius:999px;margin:0;font-size:15px}
+.hero-get-clips{background:#fff;color:#090909}
+.hero-auto-edit{background:transparent;color:#fff;border:1px solid #353535}
+.showcase-preview{position:relative;margin:28px auto 10px;max-width:690px;min-height:260px;padding:18px 18px 20px;border-radius:18px;background:linear-gradient(135deg,#161a1b,#222a2b 52%,#101314);border:1px solid #262a2b;overflow:hidden;box-shadow:0 18px 55px #0009}
+.showcase-screen{position:relative;width:76%;margin:0 auto;background:#080a0b;border:1px solid #333a3a;border-radius:12px;padding:12px;box-shadow:0 12px 35px #0009}
+.showcase-topline{display:flex;justify-content:space-between;color:#8c9895;font:8px 'DM Mono',monospace;letter-spacing:.12em}
+.showcase-main{height:125px;display:flex;align-items:center;justify-content:center;gap:16px;padding:12px}
+.showcase-video{width:48%;height:100%;display:grid;place-items:center;position:relative;border-radius:7px;background:radial-gradient(circle at 50% 38%,#526a66,#192c30 44%,#0d1112 75%);color:#aebcb8;font:8px 'DM Mono',monospace;letter-spacing:.15em}
+.play-orb{display:grid;place-items:center;width:35px;height:35px;border-radius:50%;background:#ffffffd9;color:#111;font-size:12px;margin-bottom:-20px}
+.showcase-caption{font-size:clamp(14px,3vw,23px);font-weight:800;line-height:1.05;letter-spacing:-.05em;color:#f2f4ee}
+.showcase-caption b{color:#caff6b}
+.showcase-timeline{display:flex;gap:5px;height:23px}
+.showcase-timeline span{flex:1;border-radius:3px;background:linear-gradient(135deg,#475b55,#1e2828)}
+.showcase-timeline span:nth-child(2){background:linear-gradient(135deg,#65715c,#303c35)}
+.showcase-socials{display:flex;justify-content:center;gap:clamp(15px,5vw,38px);margin:13px auto 10px;color:#e4e8e4;font-size:13px;font-weight:800}
+.showcase-thumbs{display:flex;gap:8px;justify-content:center}
+.thumb{height:66px;flex:1;max-width:120px;border-radius:7px;position:relative;overflow:hidden;background:linear-gradient(135deg,#8e9d68,#293e35 55%,#111)}
+.thumb:after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(transparent,#0009)}
+.thumb b{position:absolute;z-index:1;left:7px;bottom:5px;font:9px 'DM Mono',monospace;color:#fff}
+.thumb-two{background:linear-gradient(135deg,#665b84,#252d50 55%,#111)}
+.thumb-three{background:linear-gradient(135deg,#a77b4d,#3b4539 55%,#111)}
+.thumb-four{background:linear-gradient(135deg,#5b8490,#263c45 55%,#111)}
+.connection-panel{max-width:760px;margin:0 auto 14px;background:#101010}
+.connection-panel summary{cursor:pointer;color:#aaa;font-size:11px;font-weight:700;letter-spacing:.06em}
+.connection-panel[open] summary{margin-bottom:16px}
+.panel{background:#111;border-color:#242424}
+.workflow-panel{scroll-margin-top:20px}
+.button-primary{background:#fff;color:#080808}
+.button-primary span{color:#111}
+.button-quiet{background:#252525}
+.dropzone:hover,.hero-auto-edit:hover{border-color:#777}
+.clips-section{max-width:760px;margin:auto}
+footer{max-width:760px;margin:auto}
+@media(min-width:700px){.hero{padding-top:54px;padding-bottom:30px}.showcase-preview{min-height:310px;padding:22px}.showcase-main{height:150px}.thumb{height:85px}}
+@media(max-width:420px){.app-shell{width:calc(100% - 28px)}.hero{padding-top:30px}.hero h1{font-size:36px}.showcase-preview{min-height:220px;padding:13px}.showcase-main{height:95px}.showcase-thumbs{gap:5px}.thumb{height:52px}.hero-cta-row{gap:8px}.hero-cta-row .button{height:54px;font-size:13px}}
