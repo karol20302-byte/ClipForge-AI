@@ -470,6 +470,7 @@ async function renderClip(clip, aspect, button, card) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         start: clip.start, end: clip.end, aspect, captions,
+        quality: $("#render-quality").value,
         caption_style: $("#caption-style").value,
         caption_position: $("#caption-position").value
       })
