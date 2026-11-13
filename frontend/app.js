@@ -45,6 +45,15 @@ $("#upload-button").addEventListener("click", () => {
 $("#media-import").addEventListener("click", importMediaUrl);
 $("#youtube-preview-button").addEventListener("click", previewYouTubeLink);
 $("#process-button").addEventListener("click", runFullWorkflow);
+function updateCaptionPreview() {
+  const preview = $("#caption-preview");
+  if (!preview) return;
+  preview.className = "caption-preview theme-" + $("#caption-style").value;
+  preview.textContent = $("#caption-position").value === "top" ? "CAPTIONS AT THE TOP" : "THIS IS YOUR CAPTION STYLE";
+}
+$("#caption-style").addEventListener("change", updateCaptionPreview);
+$("#caption-position").addEventListener("change", updateCaptionPreview);
+updateCaptionPreview();
 
 $("#reset-data").addEventListener("click", async () => {
   if (!state.apiKey) {
@@ -399,9 +408,17 @@ async function renderClip(clip, aspect, button) {
   button.disabled = true; button.textContent = "Rendering…";
   let stage = "Sending render request";
   try {
+    const captions = $("#caption-enabled").checked;
     await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start: clip.start, end: clip.end, aspect })
+      body: JSON.stringify({
+        start: clip.start,
+        end: clip.end,
+        aspect,
+        captions,
+        caption_style: $("#caption-style").value,
+        caption_position: $("#caption-position").value
+      })
     });
     stage = "Fetching rendered MP4";
     const downloadResponse = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
