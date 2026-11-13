@@ -471,6 +471,7 @@ async function renderClip(clip, aspect, button, card) {
       body: JSON.stringify({
         start: clip.start, end: clip.end, aspect, captions,
         quality: $("#render-quality").value,
+        edit_style: $("#edit-style").value,
         caption_style: $("#caption-style").value,
         caption_position: $("#caption-position").value
       })
