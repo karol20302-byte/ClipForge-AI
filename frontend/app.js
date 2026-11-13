@@ -1,7 +1,7 @@
 const DEFAULT_API = "https://clipforge-ai-04gj.onrender.com";
 const $ = (selector) => document.querySelector(selector);
 const savedApi = localStorage.getItem("clipforge-api");
-const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", videoId: null, clips: [] };
+const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", videoId: null, clips: [], youtubeImportArmed: false, autoGenerateAfterUpload: false };
 
 $("#api-url").value = state.api;
 $("#api-key").value = state.apiKey;
@@ -19,6 +19,23 @@ $("#video-file").addEventListener("change", () => {
   const file = $("#video-file").files[0];
   $("#file-label").textContent = file ? file.name : "Choose a video";
   $("#upload-button").disabled = !file;
+  if (file && state.youtubeImportArmed) {
+    state.youtubeImportArmed = false;
+    state.autoGenerateAfterUpload = true;
+    uploadVideo();
+  }
+});
+$("#youtube-use-file").addEventListener("click", () => {
+  if (!$("#youtube-authorized").checked) {
+    setStatus("#youtube-status", "Please confirm that you own this video or have permission to download and edit it.");
+    return;
+  }
+  if (!$("#youtube-url").value.trim()) {
+    setStatus("#youtube-status", "Paste and preview the YouTube link first.");
+    return;
+  }
+  state.youtubeImportArmed = true;
+  $("#video-file").click();
 });
 $("#upload-button").addEventListener("click", uploadVideo);
 $("#media-import").addEventListener("click", importMediaUrl);
@@ -163,6 +180,11 @@ function uploadVideo() {
       progress.classList.add("is-complete");
       setStatus("#upload-status", "Upload complete. Your video is ready to transcribe.");
       toast("Video uploaded successfully");
+      if (state.autoGenerateAfterUpload) {
+        state.autoGenerateAfterUpload = false;
+        setStatus("#youtube-status", "Upload complete. Starting transcription and highlight detection…");
+        runFullWorkflow();
+      }
     } else {
       const message = result.detail || result.message || "Upload failed (" + xhr.status + ")";
       $("#upload-phase").textContent = "TRANSFER INTERRUPTED";
