@@ -306,6 +306,12 @@ def _import_video_url_task(video_id: str, raw_url: str):
             "max_filesize": MAX_UPLOAD_BYTES,
             "restrictfilenames": True,
             "overwrites": False,
+            # YouTube's player/API changes often require fixes from yt-dlp nightly.
+            # web_embedded currently avoids a known player-response failure on some hosts.
+            "extractor_args": {"youtube": {"player_client": ["web_embedded"]}},
+            "remote_components": ["ejs:github"],
+            "verbose": True,
+            "quiet": False,
         }
         with yt_dlp.YoutubeDL({**ydl_options, "skip_download": True}) as ydl:
             info = ydl.extract_info(raw_url, download=False)
