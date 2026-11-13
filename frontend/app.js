@@ -15,12 +15,10 @@ $("#save-key").addEventListener("click", () => {
   localStorage.setItem("clipforge-key", state.apiKey);
   toast("API key saved in this browser");
 });
-$("#open-import").addEventListener("click", () => { $("#import-popover").hidden = !$("#import-popover").hidden; });
-$("#close-import").addEventListener("click", () => { $("#import-popover").hidden = true; });
 $("#video-file").addEventListener("change", () => {
   const file = $("#video-file").files[0];
   $("#file-label").textContent = file ? file.name : "Drop a video or tap + to add";
-  if (file) $("#import-popover").hidden = true;
+
   $("#upload-button").disabled = !file;
   if (file && state.youtubeImportArmed) {
     state.youtubeImportArmed = false;
