@@ -114,6 +114,7 @@ class RenderRequest(BaseModel):
     captions: bool = True
     caption_style: Literal["bold-pop", "creator-yellow", "clean"] = "bold-pop"
     caption_position: Literal["bottom", "top"] = "bottom"
+    quality: Literal["standard", "high", "maximum"] = "high"
 
 
 class ImportUrlRequest(BaseModel):
@@ -635,7 +636,7 @@ def render_clip(clip_id: str, request: RenderRequest):
         "ffmpeg", "-y", "-ss", str(request.start), "-i", str(source_video),
         "-t", str(request.end - request.start),
         "-vf", filters,
-        "-threads", "1", "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
+        "-threads", "1", "-c:v", "libx264", "-preset", "veryfast", "-crf", {"standard": "29", "high": "25", "maximum": "21"}[request.quality],
         "-c:a", "aac", "-threads", "1", "-movflags", "+faststart", str(output),
     ]
     try:
