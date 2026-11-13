@@ -830,6 +830,32 @@ def render_clip(clip_id: str, request: RenderRequest):
         "-c:a", "aac", "-b:a", "160k", "-threads", "1",
         "-movflags", "+faststart", str(output),
     ]
+    # Add a very subtle, locally synthesized opening whoosh when the source has audio.
+    # This avoids external copyrighted SFX files and leaves silent videos untouched.
+    try:
+        audio_probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a:0",
+             "-show_entries", "stream=index", "-of", "csv=p=0", str(source_video)],
+            capture_output=True, text=True, timeout=15,
+        )
+        if audio_probe.returncode == 0 and audio_probe.stdout.strip():
+            command[command.index("-t"):command.index("-t")] = [
+                "-f", "lavfi", "-i", "anoisesrc=color=pink:sample_rate=48000:duration=0.65"
+            ]
+            audio_graph = (
+                "[0:a]aresample=48000[base];"
+                "[1:a]highpass=f=450,lowpass=f=6500,"
+                "afade=t=in:st=0:d=0.05,afade=t=out:st=0.16:d=0.40,"
+                "volume=0.035,adelay=120|120[sfx];"
+                "[base][sfx]amix=inputs=2:duration=first:dropout_transition=0[aout]"
+            )
+            command[command.index("-threads"):command.index("-threads")] = [
+                "-filter_complex", audio_graph, "-map", "0:v:0", "-map", "[aout]"
+            ]
+    except (subprocess.TimeoutExpired, OSError):
+        # SFX are optional; a probe failure must not block the actual render.
+        pass
+
     try:
         _run_ffmpeg(command, timeout=900, task="final render")
     except subprocess.TimeoutExpired as exc:
