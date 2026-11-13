@@ -232,7 +232,7 @@ def prepare_temporary_session():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "clipforge-api", "yt_dlp_version": yt_dlp.version.__version__}
+    return {"status": "ok", "service": "clipforge-api", "yt_dlp_version": yt_dlp.version.__version__, "deno_available": bool(shutil.which("deno"))}
 
 
 @app.post("/api/videos")
