@@ -22,8 +22,7 @@ $("#video-file").addEventListener("change", () => {
 });
 $("#upload-button").addEventListener("click", uploadVideo);
 $("#media-import").addEventListener("click", importMediaUrl);
-$("#process-button").addEventListener("click", transcribeVideo);
-$("#detect-button").addEventListener("click", detectClips);
+$("#process-button").addEventListener("click", runFullWorkflow);
 
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
@@ -157,11 +156,29 @@ async function importMediaUrl() {
     button.textContent = "Import & prepare";
   }
 }
+function updateGenerationStep(name, status) {
+  const step = $("#generation-step-" + name);
+  if (!step) return;
+  step.classList.remove("is-active", "is-done", "is-error");
+  if (status) step.classList.add("is-" + status);
+  const stateLabel = step.querySelector(".step-state");
+  if (stateLabel) stateLabel.textContent = status === "active" ? "IN PROGRESS" : status === "done" ? "COMPLETE" : status === "error" ? "FAILED" : "WAITING";
+}
+function showGenerationProgress(title, detail) {
+  const panel = $("#generation-progress");
+  panel.hidden = false;
+  panel.classList.remove("is-error", "is-complete");
+  $("#generation-title").textContent = title;
+  $("#generation-detail").textContent = detail;
+}
 async function runFullWorkflow() {
   if (!state.videoId) return;
   const button = $("#process-button");
   button.disabled = true;
-  button.textContent = "Transcribing audio…";
+  button.textContent = "Generating clips…";
+  ["transcribe", "detect", "approve"].forEach(name => updateGenerationStep(name, ""));
+  showGenerationProgress("Clip generation started", "Connecting to the transcription service…");
+  updateGenerationStep("transcribe", "active");
   try {
     const language = $("#transcription-language").value;
     const task = $("#transcription-task").value;
@@ -172,8 +189,11 @@ async function runFullWorkflow() {
     });
     const languageNames = { en: "English", ml: "Malayalam", hi: "Hindi", ta: "Tamil", kn: "Kannada", te: "Telugu", bn: "Bengali", mr: "Marathi", ur: "Urdu", es: "Spanish", fr: "French", de: "German", ar: "Arabic", pt: "Portuguese", ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese" };
     const detected = languageNames[transcript.language] || (language === "auto" ? "automatically detected" : languageNames[language]);
-    setStatus("#process-status", "Transcription complete (" + detected + "). Finding highlights and approving clips…");
-    button.textContent = "Detecting & approving clips…";
+    updateGenerationStep("transcribe", "done");
+    updateGenerationStep("detect", "active");
+    $("#generation-title").textContent = "Audio transcribed";
+    $("#generation-detail").textContent = "Now analysing the transcript to find strong moments…";
+    setStatus("#process-status", "Transcription complete (" + detected + "). Finding highlights…");
 
     const minDuration = Number($("#min-duration").value);
     const maxDuration = Number($("#max-duration").value);
@@ -183,18 +203,31 @@ async function runFullWorkflow() {
     }
     const settings = new URLSearchParams({ min_seconds: String(minDuration), max_seconds: String(maxDuration), aspect });
     const result = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/suggest-clips?" + settings.toString(), { method: "POST" });
+    updateGenerationStep("detect", "done");
+    updateGenerationStep("approve", "active");
+    $("#generation-title").textContent = "Highlights found";
+    $("#generation-detail").textContent = "Preparing " + (result.candidates || []).length + " clip candidates…";
     state.clips = result.candidates || [];
     renderClips();
+    updateGenerationStep("approve", "done");
+    $("#generation-progress").classList.add("is-complete");
+    $("#generation-title").textContent = "Your clips are ready";
+    $("#generation-detail").textContent = state.clips.length + " clip candidates found and automatically approved.";
     setStatus("#process-status", "Complete · " + (languageNames[transcript.language] || detected) + (task === "translate" ? " → English translation" : "") + " · " + state.clips.length + " clips found and automatically approved. Detection: " + (result.detection_method || "automatic") + ".");
     toast(state.clips.length + " approved clip candidates found");
   } catch (error) {
+    $("#generation-progress").classList.add("is-error");
+    $("#generation-title").textContent = "Generation needs attention";
+    $("#generation-detail").textContent = error.message;
+    const activeStep = document.querySelector(".generation-step.is-active");
+    if (activeStep) { activeStep.classList.remove("is-active"); activeStep.classList.add("is-error"); const label = activeStep.querySelector(".step-state"); if (label) label.textContent = "FAILED"; }
     setStatus("#process-status", error.message);
     button.disabled = false;
-    button.textContent = "Retry transcription + clip detection";
+    button.textContent = "Try again";
     return;
   }
   button.disabled = false;
-  button.textContent = "Run again · transcribe + detect clips";
+  button.textContent = "Generate clips again";
 }
 function renderClips() {
   $("#clip-count").textContent = state.clips.length + (state.clips.length === 1 ? " clip" : " clips");
