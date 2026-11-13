@@ -84,7 +84,10 @@ def _detect_scene_cuts(source: Path, start: float, duration: float) -> list[floa
         return []
 
 
-def _creator_punch_filter(dimensions: str, scene_cuts: list[float]) -> str:
+def _creator_punch_filter(dimensions: str, scene_cuts: list[float],
+                          focus_x: float = 0.5, focus_y: float = 0.5) -> str:
+    focus_x = max(0.1, min(0.9, float(focus_x)))
+    focus_y = max(0.1, min(0.9, float(focus_y)))
     if scene_cuts:
         pulses = [
             f"if(between(t\\,{cut:.3f}\\,{cut + 0.42:.3f})\\,sin((t-{cut:.3f})*7.48)\\,0)"
@@ -93,8 +96,10 @@ def _creator_punch_filter(dimensions: str, scene_cuts: list[float]) -> str:
         zoom = "1+min(0.035\\,0.012*(" + "+".join(pulses) + "))"
     else:
         zoom = "1.018"
+    x = f"max(0\\,min(iw-ow\\,iw*{focus_x:.3f}-ow/2))"
+    y = f"max(0\\,min(ih-oh\\,ih*{focus_y:.3f}-oh/2))"
     return (
-        f"crop=iw/({zoom}):ih/({zoom}):(iw-ow)/2:(ih-oh)/2:eval=frame,"
+        f"crop=iw/({zoom}):ih/({zoom}):{x}:{y}:eval=frame,"
         f"scale={dimensions}"
     )
 
@@ -165,6 +170,8 @@ class RenderRequest(BaseModel):
     caption_position: Literal["bottom", "top"] = "bottom"
     quality: Literal["standard", "high", "maximum"] = "high"
     edit_style: Literal["creator", "clean"] = "creator"
+    focus_x: float = 0.5
+    focus_y: float = 0.5
 
 
 class ImportUrlRequest(BaseModel):
@@ -738,7 +745,9 @@ def render_clip(clip_id: str, request: RenderRequest):
     if request.edit_style == "creator":
         # A restrained punch-in gives the energetic creator-edit feel without
         # cutting off the source frame or tracking a subject incorrectly.
-        filters += "," + _creator_punch_filter(dimensions[request.aspect], scene_cuts)
+        filters += "," + _creator_punch_filter(
+            dimensions[request.aspect], scene_cuts, request.focus_x, request.focus_y
+        )
     caption_file = None
     if request.captions:
         transcript_segments = job.get("transcript") or []
