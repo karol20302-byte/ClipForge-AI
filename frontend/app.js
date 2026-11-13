@@ -284,9 +284,10 @@ async function importMediaUrl() {
   const button = $("#media-import");
   const url = input.value.trim();
   if (!url) { setStatus("#youtube-status", "Paste a video URL first."); return; }
+  if (!$("#youtube-authorized").checked) { setStatus("#youtube-status", "Please confirm that you own this video or have permission to download and edit it."); return; }
   button.disabled = true;
   button.textContent = "Starting…";
-  setStatus("#youtube-status", "Checking the direct video-file link…");
+  setStatus("#youtube-status", "Checking the video platform and preparing the download…");
   try {
     const result = await api("/api/videos/import-url", {
       method: "POST",
@@ -350,7 +351,7 @@ function previewYouTubeLink() {
   frame.style.borderRadius = "12px";
   container.replaceChildren(frame);
   container.hidden = false;
-  status.textContent = "Preview loaded. ClipForge cannot download video bytes from a YouTube link. For a video you own, download the original in YouTube Studio and upload the file above to run transcription and clipping.";
+  status.textContent = "Preview loaded. If you own this video or have permission to edit it, use Import link to fetch it directly into ClipForge.";
 }
 
 function updateGenerationStep(name, status) {
