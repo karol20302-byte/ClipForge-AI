@@ -46,6 +46,12 @@
         <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.m4v">
       </label>
       <button id="upload-button" class="button button-primary" disabled>Upload video <span>↗</span></button>
+      <div class="youtube-import">
+        <label for="youtube-url">YouTube video link</label>
+        <div class="api-row"><input id="youtube-url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=..."><button id="youtube-preview-button" class="button button-quiet" type="button">Preview</button></div>
+        <div id="youtube-preview" class="youtube-preview" hidden></div>
+        <p id="youtube-status" class="hint">YouTube links can be previewed here using the official embedded player. To process a video, use a video file you own or are authorized to edit: download your own upload through YouTube Studio, then choose that file above. YouTube's Data API does not provide video-file downloads.</p>
+      </div>
       <div class="import-divider"><span>OPTIONAL · IMPORT AN AUTHORIZED SOURCE</span></div>
       <div class="source-import">
         <label for="media-url">Creator-provided direct video file URL</label>
