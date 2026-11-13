@@ -22,7 +22,7 @@ $("#video-file").addEventListener("change", () => {
 });
 $("#upload-button").addEventListener("click", uploadVideo);
 $("#media-import").addEventListener("click", importMediaUrl);
-$("#transcribe-button").addEventListener("click", transcribeVideo);
+$("#process-button").addEventListener("click", transcribeVideo);
 $("#detect-button").addEventListener("click", detectClips);
 
 async function api(path, options = {}) {
@@ -95,7 +95,7 @@ function uploadVideo() {
       state.videoId = result.id;
       $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
       $("#video-summary span:last-child").textContent = result.filename;
-      $("#transcribe-button").disabled = false;
+      $("#process-button").disabled = false;
       fill.style.width = "100%";
       $("#upload-percent").textContent = "100%";
       $("#upload-phase").textContent = "TRANSFER COMPLETE";
@@ -145,8 +145,8 @@ async function importMediaUrl() {
     state.videoId = result.id;
     $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
     $("#video-summary span:last-child").textContent = result.filename;
-    $("#transcribe-button").disabled = false;
-    $("#detect-button").disabled = true;
+    $("#process-button").disabled = false;
+    
     setStatus("#upload-status", "Video imported. Ready to transcribe.");
     setStatus("#media-status", "Source imported into ClipForge. Next, transcribe audio and detect highlights.");
     toast("Video imported successfully");
@@ -157,33 +157,24 @@ async function importMediaUrl() {
     button.textContent = "Import & prepare";
   }
 }
-async function transcribeVideo() {
+async function runFullWorkflow() {
   if (!state.videoId) return;
-  $("#transcribe-button").disabled = true;
-  setStatus("#process-status", "Transcribing audio with Whisper… This can take a while.");
+  const button = $("#process-button");
+  button.disabled = true;
+  button.textContent = "Transcribing audio…";
   try {
     const language = $("#transcription-language").value;
     const task = $("#transcription-task").value;
-    const result = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/transcribe", {
+    const transcript = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/transcribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ language, task })
     });
-    $("#detect-button").disabled = false;
     const languageNames = { en: "English", ml: "Malayalam", hi: "Hindi", ta: "Tamil", kn: "Kannada", te: "Telugu", bn: "Bengali", mr: "Marathi", ur: "Urdu", es: "Spanish", fr: "French", de: "German", ar: "Arabic", pt: "Portuguese", ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese" };
-    const detected = languageNames[result.language] || (language === "auto" ? "automatically detected" : languageNames[language]);
-    setStatus("#process-status", "Transcript ready · " + detected + (task === "translate" ? " → English translation" : "") + ". Run highlight detection next.");
-    toast("Transcription complete");
-  } catch (error) {
-    setStatus("#process-status", error.message);
-    $("#transcribe-button").disabled = false;
-  }
-}
-async function detectClips() {
-  if (!state.videoId) return;
-  $("#detect-button").disabled = true;
-  setStatus("#process-status", "Finding and ranking promising moments…");
-  try {
+    const detected = languageNames[transcript.language] || (language === "auto" ? "automatically detected" : languageNames[language]);
+    setStatus("#process-status", "Transcription complete (" + detected + "). Finding highlights and approving clips…");
+    button.textContent = "Detecting & approving clips…";
+
     const minDuration = Number($("#min-duration").value);
     const maxDuration = Number($("#max-duration").value);
     const aspect = $("#clip-ratio").value;
@@ -194,12 +185,16 @@ async function detectClips() {
     const result = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/suggest-clips?" + settings.toString(), { method: "POST" });
     state.clips = result.candidates || [];
     renderClips();
-    setStatus("#process-status", "Detection method: " + (result.detection_method || "automatic") + ". Candidates are automatically approved.");
-    toast(state.clips.length + " clip candidates found");
+    setStatus("#process-status", "Complete · " + (languageNames[transcript.language] || detected) + (task === "translate" ? " → English translation" : "") + " · " + state.clips.length + " clips found and automatically approved. Detection: " + (result.detection_method || "automatic") + ".");
+    toast(state.clips.length + " approved clip candidates found");
   } catch (error) {
     setStatus("#process-status", error.message);
-    $("#detect-button").disabled = false;
+    button.disabled = false;
+    button.textContent = "Retry transcription + clip detection";
+    return;
   }
+  button.disabled = false;
+  button.textContent = "Run again · transcribe + detect clips";
 }
 function renderClips() {
   $("#clip-count").textContent = state.clips.length + (state.clips.length === 1 ? " clip" : " clips");
