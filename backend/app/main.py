@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, HttpUrl
 
 from app.highlight_detector import detect_highlights
-from app.storage import get_media, init_storage, load_state, put_media, save_clip, save_job
+from app.storage import get_media, init_storage, load_state, put_media, reset_persistent_data, save_clip, save_job
 DATA_DIR = Path(os.getenv("CLIPFORGE_DATA_DIR", "./data")).resolve()
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = DATA_DIR / "renders"
@@ -79,6 +79,10 @@ async def protect_api_and_add_headers(request: Request, call_next):
     return response
 
 
+class ResetRequest(BaseModel):
+    confirmation: Literal["RESET ALL CLIPFORGE DATA"]
+
+
 class ApprovalRequest(BaseModel):
     approved: bool
 
@@ -96,6 +100,34 @@ class ImportUrlRequest(BaseModel):
 class TranscriptionRequest(BaseModel):
     language: Literal["en", "ml", "hi", "ta", "kn", "te", "bn", "mr", "ur", "es", "fr", "de", "ar", "pt", "ru", "ja", "ko", "zh", "auto"] = "auto"
     task: Literal["transcribe", "translate"] = "transcribe"
+
+
+@app.post("/api/admin/reset")
+def reset_all_data(request: ResetRequest):
+    try:
+        deleted = reset_persistent_data()
+    except Exception as exc:
+        raise HTTPException(503, f"Cloud reset failed: {exc}") from exc
+
+    for folder in (UPLOAD_DIR, OUTPUT_DIR):
+        folder.mkdir(parents=True, exist_ok=True)
+        for item in folder.iterdir():
+            try:
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink(missing_ok=True)
+            except OSError as exc:
+                raise HTTPException(500, f"Cloud data was cleared, but local cleanup failed: {exc}") from exc
+
+    jobs.clear()
+    clip_candidates.clear()
+    return {
+        "status": "reset",
+        "deleted_cloud_objects": deleted,
+        "cleared_database_tables": ["jobs", "clips"],
+        "local_upload_and_render_files": "cleared",
+    }
 
 
 @app.get("/health")
