@@ -287,23 +287,43 @@ async function importMediaUrl() {
   if (!$("#youtube-authorized").checked) { setStatus("#youtube-status", "Please confirm that you own this video or have permission to download and edit it."); return; }
   button.disabled = true;
   button.textContent = "Starting…";
-  setStatus("#youtube-status", "Checking the video platform and preparing the download…");
+  setStatus("#youtube-status", "Sending link to ClipForge…");
   try {
-    const result = await api("/api/videos/import-url", {
+    const queued = await api("/api/videos/import-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url })
     });
-    state.videoId = result.id;
+    state.videoId = queued.id;
+    $("#process-button").disabled = true;
     $("#video-summary").innerHTML = '<span class="summary-dot"></span><span></span>';
-    $("#video-summary span:last-child").textContent = result.filename;
-    $("#process-button").disabled = false;
-    
-    setStatus("#upload-status", "Video imported. Ready to transcribe.");
-    setStatus("#youtube-status", "Video imported. Next, generate clips.");
-    toast("Video imported successfully");
+    $("#video-summary span:last-child").textContent = "Import queued…";
+    setStatus("#youtube-status", "Link accepted. Checking the source in the background…");
+
+    let completed = false;
+    for (let attempt = 0; attempt < 900; attempt++) {
+      await new Promise(resolve => window.setTimeout(resolve, 2000));
+      const status = await api("/api/videos/" + encodeURIComponent(queued.id) + "/import-status", { cache: "no-store" });
+      if (status.status === "failed") throw new Error(status.error || "Video import failed.");
+      if (status.status === "uploaded") {
+        completed = true;
+        $("#video-summary span:last-child").textContent = status.filename || "Video imported";
+        $("#process-button").disabled = false;
+        setStatus("#upload-status", "Video imported. Ready to transcribe.");
+        setStatus("#youtube-status", "Video ready. Tap Generate clips to start transcription and highlight detection.");
+        toast("Video imported successfully");
+        break;
+      }
+      const phase = status.status === "downloading" ? "Downloading video" : status.status === "checking" ? "Checking video details" : "Waiting for import worker";
+      setStatus("#youtube-status", phase + "… ClipForge is working in the background; you can leave this screen open.");
+      if (status.filename && status.filename !== "Checking video link…") {
+        $("#video-summary span:last-child").textContent = status.filename;
+      }
+    }
+    if (!completed) throw new Error("Import is taking longer than expected. Your import may still be running; check again shortly.");
   } catch (error) {
     setStatus("#youtube-status", error.message);
+    if (!state.videoId) $("#process-button").disabled = true;
   } finally {
     button.disabled = false;
     button.textContent = "Import link";
