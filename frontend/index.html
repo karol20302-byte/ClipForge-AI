@@ -59,7 +59,12 @@
           <button id="media-import" class="button button-primary" type="button">Use link</button>
         </div>
         <div id="youtube-preview" class="youtube-preview" hidden></div>
-        <p id="youtube-status" class="hint">Import public video/VOD links from platforms supported by yt-dlp, or direct HTTPS video-file links. Completed VODs/replays only; live streams and playlists are not supported yet.</p>
+        <p id="youtube-status" class="hint" role="status" aria-live="polite">Import public video/VOD links from platforms supported by yt-dlp, or direct HTTPS video-file links. Completed VODs/replays only; live streams and playlists are not supported yet.</p>
+        <div id="external-download-progress" class="external-download-progress" hidden role="status" aria-live="polite">
+          <div class="external-download-head"><span class="external-download-spinner" aria-hidden="true"></span><div><strong id="external-download-title">CONNECTING TO SOURCE</strong><small id="external-download-detail">Preparing secure external import…</small></div><span class="external-download-live">LIVE</span></div>
+          <div class="external-download-track"><span></span></div>
+          <div class="external-download-foot"><span id="external-download-stage">SOURCE CHECK</span><span id="external-download-elapsed">0:00</span></div>
+        </div>
         <label class="youtube-permission unified-permission"><input id="youtube-authorized" type="checkbox"> <span>I own this video or have permission to download and edit it.</span></label>
         <div class="unified-actions">
           <button id="youtube-preview-button" class="button button-quiet" type="button">Preview YouTube link</button>
