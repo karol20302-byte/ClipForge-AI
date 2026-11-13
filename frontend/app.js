@@ -466,7 +466,7 @@ async function renderClip(clip, aspect, button, card) {
   let stage = "Sending render request";
   try {
     const captions = $("#caption-enabled").checked;
-    await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
+    const renderInfo = await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         start: clip.start, end: clip.end, aspect, captions,
@@ -476,6 +476,10 @@ async function renderClip(clip, aspect, button, card) {
         caption_position: $("#caption-position").value
       })
     });
+    const sceneCount = Number(renderInfo.scene_count || 1);
+    progress.querySelector(".render-progress-head small").textContent =
+      "Render complete · " + sceneCount + " scene" + (sceneCount === 1 ? "" : "s") +
+      " detected · fetching MP4…";
     stage = "Fetching rendered MP4";
     const downloadResponse = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
       headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
