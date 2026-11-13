@@ -99,7 +99,7 @@ def _creator_punch_filter(dimensions: str, scene_cuts: list[float],
     x = f"max(0\\,min(iw-ow\\,iw*{focus_x:.3f}-ow/2))"
     y = f"max(0\\,min(ih-oh\\,ih*{focus_y:.3f}-oh/2))"
     return (
-        f"crop=iw/({zoom}):ih/({zoom}):{x}:{y}:eval=frame,"
+        f"crop=iw/({zoom}):ih/({zoom}):{x}:{y}, "
         f"scale={dimensions}"
     )
 
