@@ -77,3 +77,17 @@
 @keyframes coreGlow{50%{transform:scale(.9);box-shadow:0 0 8px #c8f36a55}}
 @keyframes stepPulse{50%{box-shadow:0 0 0 4px #c8f36a22}}
 @media(prefers-reduced-motion:reduce){.generation-core,.generation-orbit,.generation-step.is-active .step-indicator{animation:none}}
+
+
+/* Guided YouTube source workflow */
+.youtube-import{display:grid;gap:10px;margin-top:18px;padding:15px;border:1px solid #39432d;border-radius:15px;background:linear-gradient(145deg,#1b2117,#15171b)}
+.youtube-import>label:not(.youtube-permission){font-size:11px;font-weight:700;color:#dce8cf}
+.youtube-import .api-row{margin:0}
+.youtube-import .api-row input{min-width:0;width:100%}
+.youtube-permission{display:flex;align-items:flex-start;gap:9px;padding:11px;border:1px solid var(--line);border-radius:10px;background:#14161a;color:#c5c9d1;font-size:10px;line-height:1.5}
+.youtube-permission input{flex:0 0 auto;margin:2px 0 0;accent-color:var(--lime)}
+.youtube-import>.button{width:100%}
+.youtube-import .hint{margin:0;color:#929b88;font-size:10px;line-height:1.55}
+.youtube-preview[hidden]{display:none}
+.youtube-preview iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:12px}
+@media(max-width:420px){.youtube-import .api-row{flex-direction:column}.youtube-import .api-row .button{width:100%}}
