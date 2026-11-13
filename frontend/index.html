@@ -55,15 +55,15 @@
         </div>
         <div class="unified-link-row">
           <span class="link-pixel" aria-hidden="true">↗</span>
-          <input id="youtube-url" type="url" inputmode="url" placeholder="Or paste a video URL here…" aria-label="Paste a video link">
+          <input id="youtube-url" type="url" inputmode="url" placeholder="Paste Twitch, YouTube, Kick, or other video/VOD URL…" aria-label="Paste a video link">
           <button id="media-import" class="button button-primary" type="button">Use link</button>
         </div>
         <div id="youtube-preview" class="youtube-preview" hidden></div>
-        <p id="youtube-status" class="hint">Direct HTTPS video-file links can be imported. YouTube links can be previewed; to edit one, select your authorized video file.</p>
-        <label class="youtube-permission unified-permission"><input id="youtube-authorized" type="checkbox"> <span>I own this video or have permission to edit it.</span></label>
+        <p id="youtube-status" class="hint">Import public video/VOD links from platforms supported by yt-dlp, or direct HTTPS video-file links. Completed VODs/replays only; live streams and playlists are not supported yet.</p>
+        <label class="youtube-permission unified-permission"><input id="youtube-authorized" type="checkbox"> <span>I own this video or have permission to download and edit it.</span></label>
         <div class="unified-actions">
           <button id="youtube-preview-button" class="button button-quiet" type="button">Preview YouTube link</button>
-          <button id="youtube-use-file" class="button button-quiet" type="button">Choose authorized YouTube file</button>
+          <button id="youtube-use-file" class="button button-quiet" type="button">Choose video file instead</button>
         </div>
       </div>
       <div class="hero-cta-row">
