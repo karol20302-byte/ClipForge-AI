@@ -704,3 +704,16 @@ footer{border-color:#40583b;color:#9aaf91}
 @keyframes externalSpin{to{transform:rotate(360deg)}}
 @keyframes externalSweep{0%{transform:translateX(-115%)}100%{transform:translateX(310%)}}
 @media(prefers-reduced-motion:reduce){.external-download-spinner,.external-download-track span{animation:none}}
+
+
+/* Minecraft-style external downloader: a tiny voxel miner breaking an ore block */
+.external-download-spinner{position:relative;width:34px;height:34px;flex:none;border:0;border-radius:0;animation:none}
+.external-download-spinner:before{content:"";position:absolute;left:8px;top:11px;width:15px;height:15px;background:#36bfc7;border:2px solid #153c37;box-shadow:0 3px 0 #1b7770,3px 0 0 #8af4e7;image-rendering:pixelated;animation:voxelOre 1.15s steps(2,end) infinite}
+.external-download-spinner:after{content:"";position:absolute;left:1px;top:2px;width:5px;height:5px;background:#b7d6a0;box-shadow:5px 0 #b7d6a0,10px 0 #79502f,10px 5px #79502f,15px 5px #79502f,15px 10px #79502f,20px 10px #79502f;transform-origin:22px 13px;animation:voxelPickaxe .58s steps(2,end) infinite}
+.external-download-progress.is-complete .external-download-spinner:before{background:#79d34b;box-shadow:0 3px 0 #345a29,3px 0 0 #b4f58b;animation:none}
+.external-download-progress.is-complete .external-download-spinner:after{opacity:0;animation:none}
+.external-download-progress.is-error .external-download-spinner:before{background:#c45b50;box-shadow:0 3px 0 #71332e;animation:none}
+.external-download-progress.is-error .external-download-spinner:after{animation:none;opacity:.35}
+@keyframes voxelPickaxe{0%,100%{transform:rotate(-28deg) translateY(-2px)}50%{transform:rotate(28deg) translateY(2px)}}
+@keyframes voxelOre{0%,100%{transform:translateY(0);filter:brightness(1)}50%{transform:translateY(2px);filter:brightness(1.5)}}
+@media(prefers-reduced-motion:reduce){.external-download-spinner:before,.external-download-spinner:after{animation:none}}
