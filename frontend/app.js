@@ -431,10 +431,12 @@ async function createHighlightPreview(clip, container, button) {
     player.src = url;
     player.addEventListener("ended", () => { player.currentTime = 0; }, { once: true });
     container.replaceChildren(player);
-    button.textContent = "Preview ready";
-    button.disabled = false;
-    button.addEventListener("click", () => { player.currentTime = 0; player.play().catch(() => {}); }, { once: false });
-    button.classList.add("is-ready");
+    const playButton = button.cloneNode(true);
+    playButton.textContent = "Play highlight";
+    playButton.disabled = false;
+    playButton.classList.add("is-ready");
+    playButton.addEventListener("click", () => { player.currentTime = 0; player.play().catch(() => {}); });
+    button.replaceWith(playButton);
     container.dataset.objectUrl = url;
   } catch (error) {
     container.classList.remove("is-loading");
