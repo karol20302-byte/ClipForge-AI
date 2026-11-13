@@ -15,6 +15,7 @@ $("#save-key").addEventListener("click", () => {
   localStorage.setItem("clipforge-key", state.apiKey);
   toast("API key saved in this browser");
 });
+$("#open-import").addEventListener("click", () => $("#video-file").click());
 $("#video-file").addEventListener("change", () => {
   const file = $("#video-file").files[0];
   $("#file-label").textContent = file ? file.name : "Drop a video or tap + to add";
