@@ -232,7 +232,7 @@ def prepare_temporary_session():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "clipforge-api"}
+    return {"status": "ok", "service": "clipforge-api", "yt_dlp_version": yt_dlp.version.__version__}
 
 
 @app.post("/api/videos")
