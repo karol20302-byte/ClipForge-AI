@@ -111,6 +111,16 @@
         <button id="process-button" class="button button-primary" disabled>Generate clips <span>✦</span></button>
       </div>
       <p id="process-status" class="status-text" role="status">One click runs Whisper transcription, finds highlights, and automatically approves the clip candidates.</p>
+      <div id="generation-progress" class="generation-progress" hidden role="status" aria-live="polite">
+        <div class="generation-visual" aria-hidden="true"><span class="generation-orbit orbit-one"></span><span class="generation-orbit orbit-two"></span><span class="generation-core">✦</span></div>
+        <div class="generation-copy"><strong id="generation-title">Preparing your clips</strong><span id="generation-detail">Getting the AI workflow ready…</span></div>
+        <div class="generation-steps">
+          <div class="generation-step" id="generation-step-transcribe"><span class="step-indicator">01</span><span>Transcribing audio</span><span class="step-state">WAITING</span></div>
+          <div class="generation-step" id="generation-step-detect"><span class="step-indicator">02</span><span>Finding highlights</span><span class="step-state">WAITING</span></div>
+          <div class="generation-step" id="generation-step-approve"><span class="step-indicator">03</span><span>Preparing clip list</span><span class="step-state">WAITING</span></div>
+        </div>
+        <p class="generation-note">This can take a little while. Keep this page open while ClipForge works.</p>
+      </div>
     </section>
 
     <section class="clips-section">
