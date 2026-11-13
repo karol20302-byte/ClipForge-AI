@@ -425,28 +425,25 @@ async function runFullWorkflow() {
   showGenerationProgress("Clip generation started", "Connecting to the transcription service…");
   updateGenerationStep("transcribe", "active");
   try {
-    const language = $("#transcription-language").value;
-    const task = $("#transcription-task").value;
+    const language = "auto";
+    const task = "transcribe";
+    state.renderQuality = $("#render-quality").value;
     const transcript = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/transcribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ language, task })
     });
     const languageNames = { en: "English", ml: "Malayalam", hi: "Hindi", ta: "Tamil", kn: "Kannada", te: "Telugu", bn: "Bengali", mr: "Marathi", ur: "Urdu", es: "Spanish", fr: "French", de: "German", ar: "Arabic", pt: "Portuguese", ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese" };
-    const detected = languageNames[transcript.language] || (language === "auto" ? "automatically detected" : languageNames[language]);
+    const detected = languageNames[transcript.language] || "automatically detected";
     updateGenerationStep("transcribe", "done");
     updateGenerationStep("detect", "active");
     $("#generation-title").textContent = "Audio transcribed";
     $("#generation-detail").textContent = "Now analysing the transcript to find strong moments…";
     setStatus("#process-status", "Transcription complete (" + detected + "). Finding highlights…");
 
-    const minDuration = Number($("#min-duration").value);
-    const maxDuration = Number($("#max-duration").value);
-    const aspect = $("#clip-ratio").value;
-    if (!Number.isFinite(minDuration) || !Number.isFinite(maxDuration) || minDuration < 10 || maxDuration < minDuration || maxDuration > 180) {
-      throw new Error("Choose durations from 10 to 180 seconds, with maximum at least the minimum.");
-    }
-    const settings = new URLSearchParams({ min_seconds: String(minDuration), max_seconds: String(maxDuration), aspect });
+    const maxDuration = Number($("#clip-length").value);
+    const minDuration = Math.min(20, Math.max(10, Math.floor(maxDuration / 3)));
+    const settings = new URLSearchParams({ min_seconds: String(minDuration), max_seconds: String(maxDuration), aspect: "9:16" });
     const result = await api("/api/videos/" + encodeURIComponent(state.videoId) + "/suggest-clips?" + settings.toString(), { method: "POST" });
     updateGenerationStep("detect", "done");
     updateGenerationStep("approve", "active");
@@ -536,7 +533,7 @@ async function prepareClipForPlayback(clip, player, status) {
         captions: true,
         focus_x: 0.5,
         focus_y: 0.5,
-        quality: "high",
+        quality: state.renderQuality || "high",
         edit_style: "creator",
         ...randomCaptionSettings()
       })
