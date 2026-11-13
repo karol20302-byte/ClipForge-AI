@@ -482,8 +482,8 @@ def preview_clip(clip_id: str):
         "ffmpeg", "-y", "-ss", str(candidate["start"]), "-i", str(source_video),
         "-t", str(duration), "-vf",
         f"scale={dimensions.get(aspect, '480:854')}:force_original_aspect_ratio=increase,crop={dimensions.get(aspect, '480:854')}",
-        "-threads", "1", "-an", "-c:v", "libx264", "-preset", "ultrafast",
-        "-crf", "30", "-movflags", "+faststart", str(preview_path),
+        "-threads", "1", "-c:v", "libx264", "-preset", "ultrafast",
+        "-crf", "30", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(preview_path),
     ]
     try:
         subprocess.run(command, check=True, capture_output=True, text=True, timeout=240)
