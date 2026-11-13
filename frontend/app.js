@@ -1,7 +1,7 @@
 const DEFAULT_API = "https://clipforge-ai-04gj.onrender.com";
 const $ = (selector) => document.querySelector(selector);
 const savedApi = localStorage.getItem("clipforge-api");
-const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", videoId: null, clips: [], youtubeImportArmed: false, autoGenerateAfterUpload: false };
+const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", videoId: null, clips: [], youtubeImportArmed: false, autoGenerateAfterUpload: false, workflowRunning: false, renderQueueRunning: false };
 
 $("#api-url").value = state.api;
 $("#api-key").value = state.apiKey;
@@ -117,10 +117,20 @@ $("#reset-data").addEventListener("click", async () => {
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (state.apiKey) headers.set("X-API-Key", state.apiKey);
-  const response = await fetch(state.api + path, { ...options, headers });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || body.message || "Request failed");
-  return body;
+  const maxBusyRetries = 12;
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(state.api + path, { ...options, headers });
+    const body = await response.json().catch(() => ({}));
+    const message = body.detail || body.message || "";
+    const renderBusy = response.status === 503 && /another video task|render.*busy|task.*using.*render|ffmpeg.*busy/i.test(message);
+    if (renderBusy && attempt < maxBusyRetries) {
+      setStatus("#process-status", "Another video is finishing its render. Waiting automatically… (" + (attempt + 1) + "/" + maxBusyRetries + ")");
+      await new Promise(resolve => window.setTimeout(resolve, 3000));
+      continue;
+    }
+    if (!response.ok) throw new Error(message || "Request failed");
+    return body;
+  }
 }
 
 async function restoreWorkspace() {
@@ -334,7 +344,8 @@ function showGenerationProgress(title, detail) {
   $("#generation-detail").textContent = detail;
 }
 async function runFullWorkflow() {
-  if (!state.videoId) return;
+  if (!state.videoId || state.workflowRunning) return;
+  state.workflowRunning = true;
   const button = $("#process-button");
   button.disabled = true;
   button.textContent = "Generating clips…";
@@ -384,10 +395,12 @@ async function runFullWorkflow() {
     const activeStep = document.querySelector(".generation-step.is-active");
     if (activeStep) { activeStep.classList.remove("is-active"); activeStep.classList.add("is-error"); const label = activeStep.querySelector(".step-state"); if (label) label.textContent = "FAILED"; }
     setStatus("#process-status", error.message);
+    state.workflowRunning = false;
     button.disabled = false;
     button.textContent = "Try again";
     return;
   }
+  state.workflowRunning = false;
   button.disabled = false;
   button.textContent = "Generate clips again";
 }
@@ -421,9 +434,15 @@ function renderClips() {
     jobs.push({ clip, player, status, card });
   });
 
-  // Render one at a time so the backend's single-FFmpeg limit is respected.
+  // Keep one render queue per page so repeated UI refreshes cannot overlap FFmpeg jobs.
+  if (state.renderQueueRunning) return;
+  state.renderQueueRunning = true;
   (async () => {
-    for (const job of jobs) await prepareClipForPlayback(job.clip, job.player, job.status);
+    try {
+      for (const job of jobs) await prepareClipForPlayback(job.clip, job.player, job.status);
+    } finally {
+      state.renderQueueRunning = false;
+    }
   })();
 }
 
