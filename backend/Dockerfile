@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs
 ENV DENO_INSTALL=/usr/local
-RUN curl -fsSL https://deno.land/install.sh | sh && ln -sf /usr/local/bin/deno /usr/local/bin/deno
+RUN curl -fsSL https://deno.land/install.sh | sh
 COPY app ./app
 ENV CLIPFORGE_DATA_DIR=/data
 EXPOSE 10000
