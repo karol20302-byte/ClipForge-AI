@@ -527,7 +527,7 @@ def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 6
             **item,
             "status": "approved",
             "approval_method": "automatic",
-            "aspect": aspect,
+            "aspect": "9:16",
         }
         clip_candidates[candidate_id] = candidate
         save_clip(candidate)
@@ -771,7 +771,9 @@ def render_clip(clip_id: str, request: RenderRequest):
     except Exception as exc:
         raise HTTPException(503, f"Could not retrieve source video from cloud storage: {exc}") from exc
     output = OUTPUT_DIR / f"{clip_id}.mp4"
-    dimensions = {"9:16": "1080:1920", "16:9": "1920:1080", "1:1": "1080:1080"}
+    # ClipForge exports every final clip as vertical 9:16, regardless of client input.
+    export_aspect = "9:16"
+    dimensions = {"9:16": "1080:1920"}
     scene_cuts = _detect_scene_cuts(source_video, request.start, request.end - request.start)
     # Preserve the entire source frame instead of center-cropping faces and on-screen text.
     filters = (
@@ -782,7 +784,7 @@ def render_clip(clip_id: str, request: RenderRequest):
         # A restrained punch-in gives the energetic creator-edit feel without
         # cutting off the source frame or tracking a subject incorrectly.
         filters += "," + _creator_punch_filter(
-            dimensions[request.aspect], scene_cuts, request.focus_x, request.focus_y
+            dimensions[export_aspect], scene_cuts, request.focus_x, request.focus_y
         )
     caption_file = None
     if request.captions:
@@ -792,7 +794,7 @@ def render_clip(clip_id: str, request: RenderRequest):
         caption_file = OUTPUT_DIR / f"{clip_id}-captions.ass"
         try:
             _build_caption_ass(
-                transcript_segments, request.start, request.end, request.aspect,
+                transcript_segments, request.start, request.end, export_aspect,
                 request.caption_style, request.caption_position, caption_file,
                 creator_overlays=request.edit_style == "creator"
             )
