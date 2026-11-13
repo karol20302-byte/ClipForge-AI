@@ -492,7 +492,7 @@ def preview_clip(clip_id: str):
         if transcript_segments:
             _build_caption_ass(
                 transcript_segments, float(candidate["start"]), float(candidate["end"]),
-                aspect, "bold-pop", "bottom", caption_file
+                aspect, "bold-pop", "bottom", caption_file, creator_overlays=True
             )
             escaped_ass_path = str(caption_file).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
             preview_filters += f",subtitles='{escaped_ass_path}'"
@@ -552,7 +552,8 @@ def _ass_escape_word(value: str) -> str:
 
 
 def _build_caption_ass(segments: list[dict], clip_start: float, clip_end: float,
-                       aspect: str, style: str, position: str, destination: Path) -> None:
+                       aspect: str, style: str, position: str, destination: Path,
+                       creator_overlays: bool = False) -> None:
     themes = {
         "bold-pop": ("&H0000DFFF", "&H00FFFFFF", 1, 4, 2),
         "creator-yellow": ("&H0000DFFF", "&H00FFFFFF", 1, 4, 2),
@@ -573,6 +574,8 @@ PlayResY: {play_height}
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,Noto Sans,{font_size},{primary},{secondary},&HCC000000,&H80000000,{bold},0,1,{outline},{shadow},{alignment},95,95,{margin_v},1
+Style: Callout,Noto Sans,58,&H0000FFFFFF,&H0000FFFFFF,&H00000000,&HAA183D18,1,0,3,2,1,8,90,90,230,1
+Style: EndCard,Noto Sans,82,&H0000FFFFFF,&H0000FFFFFF,&H00000000,&HAA183D18,1,0,3,3,2,5,90,90,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -619,6 +622,42 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 dialogues.append(
                     f"Dialogue: 0,{_ass_time(event_start)},{_ass_time(event_end)},Default,,0,0,0,,{{\\q2}}{karaoke}"
                 )
+    if creator_overlays:
+        # Short transcript-led callouts add context without inventing facts.
+        hook_words = {
+            "why", "secret", "never", "best", "because", "important", "truth",
+            "mistake", "finally", "imagine", "result", "tip", "win", "wrong",
+            "discover", "impossible", "lesson", "crazy", "amazing",
+        }
+        callouts = []
+        for segment in segments:
+            try:
+                seg_start = max(float(segment.get("start", 0)), clip_start)
+                seg_end = min(float(segment.get("end", 0)), clip_end)
+            except (TypeError, ValueError):
+                continue
+            words = str(segment.get("text", "")).split()
+            if seg_end <= seg_start or not words:
+                continue
+            if not any(re.sub(r"[^a-z]", "", word.lower()) in hook_words for word in words):
+                continue
+            phrase = " ".join(_ass_escape_word(word) for word in words[:5])
+            phrase = phrase[:72].strip()
+            if not phrase:
+                continue
+            callouts.append((seg_start - clip_start, min(seg_end - clip_start, seg_start - clip_start + 1.8), phrase))
+            if len(callouts) >= 4:
+                break
+        for callout_start, callout_end, phrase in callouts:
+            if callout_end > callout_start:
+                dialogues.append(
+                    f"Dialogue: 1,{_ass_time(callout_start)},{_ass_time(callout_end)},Callout,,0,0,0,,{{\\fad(100,140)\\an8}}{phrase}"
+                )
+        clip_duration = max(0.0, clip_end - clip_start)
+        if clip_duration >= 2.2:
+            dialogues.append(
+                f"Dialogue: 2,{_ass_time(clip_duration - 2.0)},{_ass_time(clip_duration)},EndCard,,0,0,0,,{{\\fad(180,180)}}FOLLOW FOR MORE"
+            )
     destination.write_text(header + "\n".join(dialogues) + "\n", encoding="utf-8")
 
 
@@ -658,7 +697,8 @@ def render_clip(clip_id: str, request: RenderRequest):
         try:
             _build_caption_ass(
                 transcript_segments, request.start, request.end, request.aspect,
-                request.caption_style, request.caption_position, caption_file
+                request.caption_style, request.caption_position, caption_file,
+                creator_overlays=request.edit_style == "creator"
             )
             escaped_ass_path = str(caption_file).replace("\\\\", "\\\\\\\\").replace(":", "\\\\:").replace("'", "\\\\'")
             filters += f",subtitles='{escaped_ass_path}'"
