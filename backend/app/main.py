@@ -132,6 +132,12 @@ def reset_all_data(request: ResetRequest):
     }
 
 
+@app.post("/api/admin/prepare-session")
+def prepare_temporary_session():
+    """Start a fresh browser workspace by clearing the previous temporary session."""
+    return reset_all_data(ResetRequest(confirmation="RESET ALL CLIPFORGE DATA"))
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "clipforge-api"}
