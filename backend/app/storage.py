@@ -114,26 +114,31 @@ def get_media(location: str, destination: str | Path) -> Path:
 
 
 def reset_persistent_data() -> dict:
-    """Delete only ClipForge-owned media prefixes and clear its D1 project tables."""
+    """Permanently delete every version under ClipForge media prefixes and clear D1 tables."""
     client = b2_client()
     if client is None or not d1_configured():
         raise RuntimeError("Both Backblaze B2 and Cloudflare D1 must be configured before reset")
 
     deleted = {"uploads": 0, "renders": 0}
+    paginator = client.get_paginator("list_object_versions")
     for prefix in ("uploads/", "renders/"):
-        paginator = client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=B2_BUCKET_NAME, Prefix=prefix):
-            objects = [{"Key": item["Key"]} for item in page.get("Contents", [])]
-            if objects:
-                for offset in range(0, len(objects), 1000):
-                    batch = objects[offset:offset + 1000]
-                    response = client.delete_objects(
-                        Bucket=B2_BUCKET_NAME,
-                        Delete={"Objects": batch, "Quiet": True},
-                    )
-                    if response.get("Errors"):
-                        raise RuntimeError(f"Backblaze could not delete every object under {prefix}")
-                    deleted["uploads" if prefix == "uploads/" else "renders"] += len(batch)
+            entries = []
+            for item in page.get("Versions", []):
+                entries.append({"Key": item["Key"], "VersionId": item["VersionId"]})
+            for item in page.get("DeleteMarkers", []):
+                entries.append({"Key": item["Key"], "VersionId": item["VersionId"]})
+            for offset in range(0, len(entries), 1000):
+                batch = entries[offset:offset + 1000]
+                if not batch:
+                    continue
+                response = client.delete_objects(
+                    Bucket=B2_BUCKET_NAME,
+                    Delete={"Objects": batch, "Quiet": True},
+                )
+                if response.get("Errors"):
+                    raise RuntimeError(f"Backblaze could not permanently delete every version under {prefix}")
+                deleted["uploads" if prefix == "uploads/" else "renders"] += len(batch)
 
     d1("DELETE FROM jobs")
     d1("DELETE FROM clips")
