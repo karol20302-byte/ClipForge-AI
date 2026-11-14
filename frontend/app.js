@@ -1,7 +1,7 @@
 const DEFAULT_API = "https://clipforge-ai-04gj.onrender.com";
 const $ = (selector) => document.querySelector(selector);
 const savedApi = localStorage.getItem("clipforge-api");
-const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", videoId: null, clips: [], youtubeImportArmed: false, autoGenerateAfterUpload: false, workflowRunning: false, renderQueueRunning: false };
+const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", googleCredential: "", authenticated: false, videoId: null, clips: [], youtubeImportArmed: false, autoGenerateAfterUpload: false, workflowRunning: false, renderQueueRunning: false };
 
 $("#api-url").value = state.api;
 $("#api-key").value = state.apiKey;
@@ -113,9 +113,70 @@ $("#reset-data").addEventListener("click", async () => {
   }
 });
 
-async function api(path, options = {}) {
+
+async function initPrivateGoogleLogin() {
+  const status = $("#login-status");
+  try {
+    status.textContent = "Connecting to secure sign-in…";
+    const response = await fetch(state.api + "/auth/config", { cache: "no-store" });
+    const config = await response.json();
+    if (!response.ok || !config.configured || !config.client_id) {
+      throw new Error("Google sign-in is not configured on the backend yet. Add GOOGLE_CLIENT_ID and CLIPFORGE_ALLOWED_EMAIL in Render environment variables.");
+    }
+    if (!window.google?.accounts?.id) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://accounts.google.com/gsi/client";
+        script.async = true;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("Google sign-in could not load. Check your connection."));
+        document.head.appendChild(script);
+      });
+    }
+    window.google.accounts.id.initialize({
+      client_id: config.client_id,
+      callback: handleGoogleCredential,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+    window.google.accounts.id.renderButton($("#google-signin-button"), {
+      type: "standard", theme: "filled_black", size: "large",
+      text: "continue_with", shape: "pill", width: 280
+    });
+    status.textContent = "Only the approved Google account can enter this workspace.";
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+async function handleGoogleCredential(response) {
+  const status = $("#login-status");
+  status.textContent = "Verifying your Google account…";
+  try {
+    const verification = await fetch(state.api + "/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const result = await verification.json().catch(() => ({}));
+    if (!verification.ok || !result.ok) throw new Error(result.detail || "This account is not allowed to use ClipForge.");
+    state.googleCredential = response.credential;
+    state.authenticated = true;
+    $("#login-gate").hidden = true;
+    $("#app-shell").hidden = false;
+    status.textContent = "Signed in.";
+    await prepareFreshWorkspace();
+  } catch (error) {
+    state.googleCredential = "";
+    status.textContent = error.message;
+    if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
+  }
+}
+\nasync function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (state.apiKey) headers.set("X-API-Key", state.apiKey);
+  if (state.googleCredential) headers.set("Authorization", "Bearer " + state.googleCredential);
   const maxBusyRetries = 12;
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(state.api + path, { ...options, headers });
@@ -212,7 +273,7 @@ function uploadVideo() {
 
   const xhr = new XMLHttpRequest();
   xhr.open("POST", state.api + "/api/videos");
-  if (state.apiKey) xhr.setRequestHeader("X-API-Key", state.apiKey);
+  if (state.apiKey) xhr.setRequestHeader("X-API-Key", state.apiKey);\n  if (state.googleCredential) xhr.setRequestHeader("Authorization", "Bearer " + state.googleCredential);
   xhr.upload.addEventListener("progress", (event) => {
     if (!event.lengthComputable) return;
     const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
@@ -590,3 +651,4 @@ function formatTime(seconds) {
   const value = Math.max(0, Math.floor(Number(seconds) || 0));
   return Math.floor(value / 60) + ":" + String(value % 60).padStart(2, "0");
 }
+\n\n// The editor stays hidden until the backend verifies the approved Google account.\ninitPrivateGoogleLogin();\n
