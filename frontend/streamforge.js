@@ -1,10 +1,10 @@
 (() => {
   "use strict";
   const $ = (s) => document.querySelector(s);
-  const input = $("#sf-url");
+  const input = $("#youtube-url");
   if (!input) return;
   const queue = [];
-  const fields = { format: $("#sf-format"), quality: $("#sf-quality"), start: $("#sf-start"), end: $("#sf-end"), subs: $("#sf-subs"), meta: $("#sf-meta"), keyframes: $("#sf-keyframes"), authorized: $("#sf-authorized") };
+  const fields = { format: $("#sf-format"), quality: $("#sf-quality"), start: $("#sf-start"), end: $("#sf-end"), subs: $("#sf-subs"), meta: $("#sf-meta"), keyframes: $("#sf-keyframes"), authorized: $("#youtube-authorized") };
   const out = { ytdlp: $("#sf-ytdlp"), formats: $("#sf-formats"), ffmpeg: $("#sf-ffmpeg") };
   let current = null;
   function shellQuote(value) { return "'" + String(value).replace(/'/g, "'\\''") + "'"; }
@@ -102,34 +102,7 @@
     downloadFile("clipforge_streamforge_batch." + ext, lines.join(win ? "\r\n" : "\n"));
     notify("Batch script created · " + items.length + " job(s)");
   }
-  // Keep StreamForge and the main importer on one URL. Importing here hands
-  // the URL to the existing yt-dlp backend and then starts the full AI workflow.
-  const unifiedUrl = $("#youtube-url");
-  if (unifiedUrl) {
-    unifiedUrl.addEventListener("input", () => {
-      if (input.value !== unifiedUrl.value) {
-        input.value = unifiedUrl.value;
-        update();
-      }
-    });
-  }
-  const importButton = $("#sf-import");
-  if (importButton) importButton.addEventListener("click", () => {
-    const info = parseUrl(input.value);
-    if (!info.valid) { notify(info.error || "Enter a valid HTTP/HTTPS video URL first."); input.focus(); return; }
-    if (!fields.authorized.checked) {
-      notify("Confirm that you own this video or have permission to download and edit it.");
-      return;
-    }
-    if (!unifiedUrl || !$("#media-import") || !$("#youtube-authorized")) {
-      notify("The main ClipForge importer is unavailable. Refresh the page and try again.");
-      return;
-    }
-    unifiedUrl.value = input.value.trim();
-    $("#youtube-authorized").checked = true;
-    $("#media-import").click();
-    notify("StreamForge handed the URL to yt-dlp. ClipForge will download it, then start AI highlight detection and Shorts rendering.");
-  });
+  // StreamForge reads the single shared URL field in Step 01.
   input.addEventListener("input", update);
   Object.values(fields).forEach(el => el.addEventListener("change", update));
   [fields.start, fields.end].forEach(el => el.addEventListener("input", update));
