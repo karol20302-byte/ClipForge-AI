@@ -366,70 +366,123 @@ async def upload_video(file: UploadFile = File(...)):
 
 
 def _import_video_url_task(video_id: str, raw_url: str):
-    """Download a video in the background so link submission responds immediately."""
+    """Download a user-authorized public video/VOD using yt-dlp."""
     from urllib.parse import urlparse
+
+    def update_job(**values):
+        job = jobs.get(video_id)
+        if job is not None:
+            job.update(values)
+            try:
+                save_job(job)
+            except Exception:
+                pass
 
     try:
         parsed = urlparse(raw_url)
         hostname = (parsed.hostname or "").lower().rstrip(".")
         if parsed.scheme != "https" or not hostname or parsed.username or parsed.password:
             raise ValueError("Use a public HTTPS video or VOD URL.")
-        if hostname in {"localhost", "youtube.com.evil", "127.0.0.1"}:
+        if hostname == "localhost" or hostname.endswith(".localhost"):
             raise ValueError("This host is not allowed.")
-        addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
-        if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+        try:
+            addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
+        except OSError as exc:
+            raise ValueError("The video host could not be reached. Check the URL and try again.") from exc
+        if not addresses or any(
+            not ipaddress.ip_address(item[4][0]).is_global for item in addresses
+        ):
             raise ValueError("The video host must resolve to a public internet address.")
 
-        jobs[video_id]["status"] = "downloading"
+        update_job(status="downloading", progress=0, error=None, detail="Connecting to the video source…")
         destination = UPLOAD_DIR / f"{video_id}.%(ext)s"
-        ydl_options = {
-            "outtmpl": str(destination),
-            "format": "best[ext=mp4]/best",
-            "merge_output_format": "mp4",
-            "noplaylist": True,
-            "no_warnings": True,
-            "quiet": True,
-            "socket_timeout": 20,
-            "retries": 1,
-            "fragment_retries": 1,
-            "max_filesize": MAX_UPLOAD_BYTES,
-            "restrictfilenames": True,
-            "overwrites": False,
-            # YouTube's player/API changes often require fixes from yt-dlp nightly.
-            # web_embedded currently avoids a known player-response failure on some hosts.
-            "extractor_args": {"youtube": {"player_client": ["mweb", "tv", "web_safari"]}},
-            "remote_components": ["ejs:github"],
-            "verbose": True,
-            "quiet": False,
-        }
-        # Skip metadata-only preflight: start the actual download immediately.
-        # yt-dlp enforces max_filesize where supported; the completed file is
-        # checked again below before it is accepted into the workspace.
-        title = "imported-video"
-        jobs[video_id]["filename"] = title
-        with yt_dlp.YoutubeDL(ydl_options) as ydl:
-            ydl.download([raw_url])
-        downloaded = [p for p in UPLOAD_DIR.glob(video_id + ".*") if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
+        last_error = None
+        downloaded = []
+
+        # Prefer yt-dlp's default client selection. Hard-coding a player client
+        # can break extraction when a platform changes its player/API.
+        format_choices = ("bv*+ba/b", "best")
+        for format_choice in format_choices:
+            for partial in UPLOAD_DIR.glob(video_id + ".*"):
+                if partial.is_file():
+                    partial.unlink(missing_ok=True)
+
+            last_progress_write = [0.0]
+
+            def progress_hook(data):
+                if data.get("status") == "downloading":
+                    total = data.get("total_bytes") or data.get("total_bytes_estimate")
+                    received = data.get("downloaded_bytes") or 0
+                    percent = min(99, int(received * 100 / total)) if total else None
+                    now = time.time()
+                    if now - last_progress_write[0] >= 2 or percent == 99:
+                        last_progress_write[0] = now
+                        update_job(
+                            progress=percent,
+                            detail="Downloading video…" if percent is None else f"Downloading video… {percent}%",
+                            filename=str(data.get("info_dict", {}).get("title") or "Video download"),
+                        )
+                elif data.get("status") == "finished":
+                    update_job(progress=99, detail="Download complete. Preparing video…")
+
+            ydl_options = {
+                "outtmpl": str(destination),
+                "format": format_choice,
+                "merge_output_format": "mp4",
+                "noplaylist": True,
+                "quiet": True,
+                "no_warnings": False,
+                "socket_timeout": 30,
+                "retries": 3,
+                "fragment_retries": 3,
+                "extractor_retries": 2,
+                "file_access_retries": 2,
+                "concurrent_fragment_downloads": 1,
+                "max_filesize": MAX_UPLOAD_BYTES,
+                "restrictfilenames": True,
+                "overwrites": True,
+                "remote_components": ["ejs:github"],
+                "progress_hooks": [progress_hook],
+            }
+            try:
+                with yt_dlp.YoutubeDL(ydl_options) as ydl:
+                    ydl.download([raw_url])
+                downloaded = [
+                    path for path in UPLOAD_DIR.glob(video_id + ".*")
+                    if path.is_file() and not path.name.endswith((".part", ".ytdl"))
+                ]
+                if downloaded:
+                    break
+                last_error = "The source did not produce a downloadable video file."
+            except Exception as exc:
+                last_error = str(exc)[:700]
+                update_job(detail="Trying a compatible download format…")
+
         if not downloaded:
-            raise ValueError("The source did not produce a downloadable video file.")
-        source = max(downloaded, key=lambda p: p.stat().st_size)
+            raise ValueError(last_error or "yt-dlp could not find a downloadable format.")
+
+        source = max(downloaded, key=lambda path: path.stat().st_size)
         if source.stat().st_size == 0:
             raise ValueError("The downloaded video is empty.")
         if source.stat().st_size > MAX_UPLOAD_BYTES:
-            source.unlink(missing_ok=True)
             raise ValueError(f"Video exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB import limit.")
-        jobs[video_id].update({
-            "filename": f"{title}{source.suffix}",
-            "path": put_media(source, f"uploads/{video_id}{source.suffix}"),
-            "status": "uploaded",
-            "transcript": None,
-        })
-        save_job(jobs[video_id])
+
+        title = jobs[video_id].get("filename") or "imported-video"
+        safe_title = re.sub(r"[^A-Za-z0-9._ -]", "", str(title)).strip()[:90] or "imported-video"
+        update_job(
+            filename=f"{safe_title}{source.suffix}",
+            path=put_media(source, f"uploads/{video_id}{source.suffix}"),
+            status="uploaded",
+            progress=100,
+            detail="Video imported and ready.",
+            transcript=None,
+            error=None,
+        )
     except Exception as exc:
         for item in UPLOAD_DIR.glob(video_id + ".*"):
-            item.unlink(missing_ok=True)
-        jobs[video_id]["status"] = "failed"
-        jobs[video_id]["error"] = str(exc)[:500]
+            if item.is_file():
+                item.unlink(missing_ok=True)
+        update_job(status="failed", progress=0, error=str(exc)[:700], detail="Import failed.")
 
 
 @app.post("/api/videos/import-url")
