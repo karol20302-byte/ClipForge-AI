@@ -498,6 +498,7 @@ def import_video_url(request: ImportUrlRequest, background_tasks: BackgroundTask
         "transcript": None,
         "source": "video-url",
     }
+    save_job(jobs[video_id])
     background_tasks.add_task(_import_video_url_task, video_id, raw_url)
     return {"id": video_id, "filename": jobs[video_id]["filename"], "status": "queued", "source": "video-url"}
 
@@ -511,6 +512,8 @@ def import_video_status(video_id: str):
         "id": video_id,
         "filename": job.get("filename"),
         "status": job.get("status"),
+        "progress": job.get("progress"),
+        "detail": job.get("detail"),
         "error": job.get("error"),
     }
 
