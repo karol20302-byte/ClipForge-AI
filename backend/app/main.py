@@ -419,7 +419,11 @@ def _import_video_url_task(video_id: str, raw_url: str):
 
         # Prefer yt-dlp's default client selection. Hard-coding a player client
         # can break extraction when a platform changes its player/API.
-        format_choices = ("bv*+ba/b", "best")
+        # Prefer MP4 streams and cap source video at 720p to reduce transfer size and render load.
+        # Keep best available audio, then fall back to a compatible combined format at <=720p.
+        format_choices = (
+            "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720][ext=mp4]/bv*[height<=720]+ba/b[height<=720]",
+        )
         for format_choice in format_choices:
             for partial in UPLOAD_DIR.glob(video_id + ".*"):
                 if partial.is_file():
