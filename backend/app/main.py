@@ -537,7 +537,11 @@ def _import_video_url_task(video_id: str, raw_url: str):
                     "fragment_retries": 3,
                     "extractor_retries": 2,
                     "file_access_retries": 2,
-                    "concurrent_fragment_downloads": 1,
+                    # Prefer IPv4 on hosts whose IPv6 route is unreliable.
+                    "source_address": "0.0.0.0",
+                    # Avoid repeated cache writes on ephemeral server storage.
+                    "cachedir": False,
+                    "concurrent_fragment_downloads": 2,
                     "max_filesize": MAX_UPLOAD_BYTES,
                     "restrictfilenames": True,
                     "overwrites": True,
@@ -551,7 +555,10 @@ def _import_video_url_task(video_id: str, raw_url: str):
                         ydl.download([raw_url])
                     downloaded = [
                         path for path in UPLOAD_DIR.glob(video_id + ".*")
-                        if path.is_file() and not path.name.endswith((".part", ".ytdl"))
+                        if path.is_file()
+                        and path.suffix.lower() in ALLOWED_EXTENSIONS
+                        and not path.name.endswith((".part", ".ytdl"))
+                        and path.stat().st_size > 0
                     ]
                     if downloaded:
                         break
