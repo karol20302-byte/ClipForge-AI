@@ -753,3 +753,14 @@ footer{border-color:#40583b;color:#9aaf91}
 .video-only-card .auto-ready-player{width:100%;max-width:280px;max-height:500px;aspect-ratio:9/16;height:auto;object-fit:contain;border:1px solid #4a4265;border-radius:24px;overflow:hidden;box-shadow:0 12px 30px #0005}
 .clip-preparing{display:grid;place-items:center;width:100%;max-width:280px;aspect-ratio:9/16;border:1px solid #4a4265;border-radius:24px;background:linear-gradient(145deg,#1c1a2a,#101017);color:#c8f36a;text-align:center;padding:18px;font:10px 'DM Mono',monospace;letter-spacing:.1em;line-height:1.7;box-shadow:0 12px 30px #0005}
 @media(max-width:420px){.export-settings-grid{grid-template-columns:1fr 1fr}.video-only-card{max-width:310px}.video-only-card .auto-ready-player,.clip-preparing{max-width:260px}}
+
+/* Private Google sign-in gate */
+[hidden]{display:none!important}
+.login-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 20%,#201b37 0,#09090d 55%,#050505 100%);color:#f5f2ff}
+.login-card{width:min(100%,420px);padding:34px 26px;border:1px solid #39314f;border-radius:24px;background:#111019;box-shadow:0 24px 80px #0009;text-align:center}
+.login-brand{display:grid;place-items:center;width:48px;height:48px;margin:0 auto 20px;border-radius:15px;background:#c8f36a;color:#111;font-size:28px;font-weight:900}
+.login-card .eyebrow{color:#c8f36a;font:10px 'DM Mono',monospace;letter-spacing:.16em}
+.login-card h1{margin:10px 0;font-size:30px}
+.login-card>p:not(.eyebrow){color:#aaa4b8;font-size:13px;line-height:1.65}
+.google-signin-button{display:flex;justify-content:center;min-height:44px;margin:24px 0 12px}
+.login-status{min-height:38px;font-size:11px!important;color:#aaa4b8}
