@@ -138,6 +138,8 @@ ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 ALLOWED_GOOGLE_EMAIL = os.getenv("CLIPFORGE_ALLOWED_EMAIL", "").strip().lower()
+SESSION_SECRET = os.getenv("CLIPFORGE_SESSION_SECRET", "").strip() or API_KEY
+SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 _google_auth_request = GoogleAuthRequest()
 
 
@@ -157,6 +159,39 @@ def verify_google_identity(credential: str) -> dict | None:
         return None
 
 
+def create_session_token(identity: dict) -> str:
+    if not SESSION_SECRET:
+        raise HTTPException(503, "Persistent login is not configured. Set CLIPFORGE_SESSION_SECRET in Render.")
+    payload = {
+        "email": identity["email"],
+        "sub": identity["sub"],
+        "exp": int(time.time()) + SESSION_TTL_SECONDS,
+    }
+    encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
+    signature = hmac.new(SESSION_SECRET.encode(), encoded.encode(), "sha256").hexdigest()
+    return encoded + "." + signature
+
+
+def verify_session_token(token: str) -> dict | None:
+    if not SESSION_SECRET or not token or "." not in token:
+        return None
+    encoded, supplied_signature = token.rsplit(".", 1)
+    expected_signature = hmac.new(SESSION_SECRET.encode(), encoded.encode(), "sha256").hexdigest()
+    if not hmac.compare_digest(supplied_signature, expected_signature):
+        return None
+    try:
+        padded = encoded + "=" * (-len(encoded) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode()))
+        if payload.get("exp", 0) <= int(time.time()):
+            return None
+        email = str(payload.get("email", "")).strip().lower()
+        if not hmac.compare_digest(email, ALLOWED_GOOGLE_EMAIL):
+            return None
+        return {"email": email, "sub": str(payload.get("sub", ""))}
+    except Exception:
+        return None
+
+
 @app.middleware("http")
 async def protect_api_and_add_headers(request: Request, call_next):
     if request.method != "OPTIONS" and request.url.path.startswith("/api/") and request.url.path != "/api/health":
@@ -164,7 +199,7 @@ async def protect_api_and_add_headers(request: Request, call_next):
         key_is_valid = bool(API_KEY and hmac.compare_digest(supplied_key, API_KEY))
         authorization = request.headers.get("authorization", "")
         bearer = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
-        if not key_is_valid and verify_google_identity(bearer) is None:
+        if not key_is_valid and verify_google_identity(bearer) is None and verify_session_token(bearer) is None:
             detail = "Google sign-in is not configured on the server" if not GOOGLE_CLIENT_ID or not ALLOWED_GOOGLE_EMAIL else "Sign in with the approved Google account to continue"
             status = 503 if not GOOGLE_CLIENT_ID or not ALLOWED_GOOGLE_EMAIL else 401
             return JSONResponse(status_code=status, content={"detail": detail})
@@ -265,7 +300,7 @@ class GoogleCredentialRequest(BaseModel):
 
 @app.get("/auth/config")
 def google_auth_config():
-    return {"configured": bool(GOOGLE_CLIENT_ID and ALLOWED_GOOGLE_EMAIL), "client_id": GOOGLE_CLIENT_ID or None}
+    return {"configured": bool(GOOGLE_CLIENT_ID and ALLOWED_GOOGLE_EMAIL), "client_id": GOOGLE_CLIENT_ID or None, "session_configured": bool(SESSION_SECRET)}
 
 
 @app.post("/auth/verify")
@@ -273,6 +308,16 @@ def verify_google_login(payload: GoogleCredentialRequest):
     identity = verify_google_identity(payload.credential)
     if identity is None:
         raise HTTPException(401, "This Google account is not authorized for ClipForge.")
+    return {"ok": True, "email": identity["email"], "session_token": create_session_token(identity)}
+
+
+@app.get("/auth/session")
+def validate_persistent_session(request: Request):
+    authorization = request.headers.get("authorization", "")
+    bearer = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
+    identity = verify_session_token(bearer)
+    if identity is None:
+        raise HTTPException(401, "Your saved session has expired. Please sign in again.")
     return {"ok": True, "email": identity["email"]}
 
 
