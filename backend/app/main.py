@@ -564,7 +564,7 @@ def _analyze_candidate_media(source: Path, start: float, end: float) -> dict:
         "-f", "null", "-",
     ]
     try:
-        result = _run_ffmpeg(command, timeout=35, task="highlight media analysis")
+        result = _run_ffmpeg(command, timeout=20, task="highlight media analysis")
         stamps = re.findall(r"pts_time:([0-9]+(?:\\.[0-9]+)?)", result.stderr)
         scene_count = len(stamps)
         rms_values = re.findall(r"RMS level dB:\\s*(-?[0-9]+(?:\\.[0-9]+)?)", result.stderr)
@@ -614,7 +614,8 @@ def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 6
         source_video = local_video_path(job)
     except Exception as exc:
         raise HTTPException(503, f"Could not retrieve source video for media analysis: {exc}") from exc
-    for item in ranked[:12]:
+    ranked = ranked[:6]
+    for item in ranked:
         media = _analyze_candidate_media(source_video, item["start"], item["end"])
         item.update(media)
         visual = media.get("visual_activity_score")
