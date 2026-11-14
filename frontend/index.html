@@ -91,8 +91,8 @@
       <summary><span><b>ADVANCED TOOLS</b> · StreamForge Inspector & Batch Extractor</span><span class="streamforge-summary-note">yt-dlp · FFmpeg · Direct preview</span></summary>
       <div class="streamforge-content">
         <div class="streamforge-intro"><h2>Inspect a source. Build a local extraction command.</h2><p>Generate commands and batch scripts for videos you own or have permission to edit. Watch-page extraction runs locally; it does not bypass platform restrictions.</p></div>
-        <label class="streamforge-label" for="sf-url">Video, stream or direct media URL</label>
-        <div class="streamforge-url-row"><input id="sf-url" type="url" inputmode="url" placeholder="https://youtube.com/watch?v=… or https://example.com/video.mp4"><button id="sf-import" class="button button-primary" type="button">Import & Auto-clip</button><button id="sf-add" class="button button-secondary" type="button">Add to batch</button></div>
+        <p class="streamforge-shared-url-note">Using the same video link from <b>STEP 01 · Bring your video</b>. Paste or upload once there, then use the main <b>Use link</b> button to start importing and AI clipping.</p>
+        <div class="streamforge-batch-action"><button id="sf-add" class="button button-secondary" type="button">Add current link to batch</button></div>
         <div class="streamforge-meta" aria-live="polite"><span><small>PLATFORM</small><b id="sf-platform">—</b></span><span><small>VIDEO / FILE ID</small><b id="sf-id">—</b></span><span><small>STREAM TYPE</small><b id="sf-type">—</b></span><span><small>BROWSER PREVIEW</small><b id="sf-playable">—</b></span></div>
         <div class="streamforge-options">
           <label>Output format<select id="sf-format"><option value="mp4">MP4 · H.264</option><option value="webm">WebM</option><option value="mkv">MKV</option><option value="mp3">MP3 audio</option><option value="m4a">M4A audio</option><option value="wav">WAV audio</option></select></label>
@@ -101,7 +101,7 @@
           <label>Clip end · HH:MM:SS<input id="sf-end" type="text" placeholder="00:03:45"></label>
         </div>
         <div class="streamforge-flags"><label><input id="sf-subs" type="checkbox"> Embed English subtitles</label><label><input id="sf-meta" type="checkbox" checked> Embed metadata & thumbnail</label><label><input id="sf-keyframes" type="checkbox"> Accurate keyframe cuts (re-encode)</label></div>
-        <label class="streamforge-permission"><input id="sf-authorized" type="checkbox"> I own this video or have permission to download and edit it.</label>
+        <p class="streamforge-shared-permission-note">Batch tools use the permission confirmation in Step 01.</p>
         <div class="streamforge-commands">
           <div><div class="streamforge-command-head"><b>yt-dlp · Download / clip</b><button type="button" data-sf-copy="sf-ytdlp">Copy</button></div><pre id="sf-ytdlp"></pre></div>
           <div><div class="streamforge-command-head"><b>yt-dlp · Inspect available formats</b><button type="button" data-sf-copy="sf-formats">Copy</button></div><pre id="sf-formats"></pre></div>
