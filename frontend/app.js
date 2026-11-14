@@ -677,6 +677,9 @@ function formatTime(seconds) {
 
 $("#sign-out").addEventListener("click", () => {
   state.sessionToken = "";
+  state.apiKey = "";
+  $("#api-key").value = "";
+  localStorage.removeItem("clipforge-key");
   state.authenticated = false;
   state.videoId = null;
   state.clips = [];
