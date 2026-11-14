@@ -60,7 +60,7 @@
     if (opt.start) ff.push("-ss", shellQuote(opt.start));
     if (opt.end) ff.push("-to", shellQuote(opt.end));
     const ffInput = info.valid && (info.direct || info.manifest) ? target : "$(yt-dlp -g -f best " + shellQuote(target) + ")";
-    ff.push("-i", shellQuote(ffInput));
+    ff.push("-i", info.valid && (info.direct || info.manifest) ? shellQuote(ffInput) : ffInput);
     const audio = ["mp3", "m4a", "wav"].includes(opt.format) || opt.quality === "audio";
     if (audio) ff.push("-vn", "-q:a", "0", shellQuote("output_clip." + (["mp3", "m4a", "wav"].includes(opt.format) ? opt.format : "mp3")));
     else if (opt.start || opt.end || opt.keyframes) ff.push("-c:v", "libx264", "-crf", "20", "-c:a", "aac", shellQuote("output_clip." + opt.format));
