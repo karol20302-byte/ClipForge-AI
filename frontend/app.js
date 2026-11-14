@@ -173,7 +173,8 @@ async function handleGoogleCredential(response) {
     if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   }
 }
-\nasync function api(path, options = {}) {
+
+async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (state.apiKey) headers.set("X-API-Key", state.apiKey);
   if (state.googleCredential) headers.set("Authorization", "Bearer " + state.googleCredential);
@@ -273,7 +274,8 @@ function uploadVideo() {
 
   const xhr = new XMLHttpRequest();
   xhr.open("POST", state.api + "/api/videos");
-  if (state.apiKey) xhr.setRequestHeader("X-API-Key", state.apiKey);\n  if (state.googleCredential) xhr.setRequestHeader("Authorization", "Bearer " + state.googleCredential);
+  if (state.apiKey) xhr.setRequestHeader("X-API-Key", state.apiKey);
+  if (state.googleCredential) xhr.setRequestHeader("Authorization", "Bearer " + state.googleCredential);
   xhr.upload.addEventListener("progress", (event) => {
     if (!event.lengthComputable) return;
     const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
@@ -651,4 +653,7 @@ function formatTime(seconds) {
   const value = Math.max(0, Math.floor(Number(seconds) || 0));
   return Math.floor(value / 60) + ":" + String(value % 60).padStart(2, "0");
 }
-\n\n// The editor stays hidden until the backend verifies the approved Google account.\ninitPrivateGoogleLogin();\n
+
+
+// The editor stays hidden until the backend verifies the approved Google account.
+initPrivateGoogleLogin();
