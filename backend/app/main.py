@@ -90,22 +90,20 @@ def _detect_scene_cuts(source: Path, start: float, duration: float) -> list[floa
 
 def _creator_punch_filter(dimensions: str, scene_cuts: list[float],
                           focus_x: float = 0.5, focus_y: float = 0.5) -> str:
+    """Apply a noticeable Shorts-style crop zoom with quick scene-beat punches."""
     focus_x = max(0.1, min(0.9, float(focus_x)))
     focus_y = max(0.1, min(0.9, float(focus_y)))
     if scene_cuts:
         pulses = [
-            f"if(between(t\\,{cut:.3f}\\,{cut + 0.42:.3f})\\,sin((t-{cut:.3f})*7.48)\\,0)"
-            for cut in scene_cuts
+            f"if(between(t\\,{cut:.3f}\\,{cut + 0.55:.3f})\\,sin((t-{cut:.3f})*5.71)\\,0)"
+            for cut in scene_cuts[:18]
         ]
-        zoom = "1+min(0.035\\,0.012*(" + "+".join(pulses) + "))"
+        zoom = "1.075+min(0.105\\,0.075*(" + "+".join(pulses) + "))"
     else:
-        zoom = "1.018"
+        zoom = "1.075"
     x = f"max(0\\,min(iw-ow\\,iw*{focus_x:.3f}-ow/2))"
     y = f"max(0\\,min(ih-oh\\,ih*{focus_y:.3f}-oh/2))"
-    return (
-        f"crop=iw/({zoom}):ih/({zoom}):{x}:{y},"
-        f"scale={dimensions}"
-    )
+    return f"crop=iw/({zoom}):ih/({zoom}):{x}:{y},scale={dimensions}"
 
 
 @app.on_event("startup")
@@ -807,14 +805,15 @@ def _build_caption_ass(segments: list[dict], clip_start: float, clip_end: float,
                        aspect: str, style: str, position: str, destination: Path,
                        creator_overlays: bool = False) -> None:
     themes = {
-        "bold-pop": ("&H0000DFFF", "&H00FFFFFF", 1, 4, 2),
-        "creator-yellow": ("&H0000FFFF", "&H00FFFFFF", 1, 4, 2),
-        "clean": ("&H00FFFFFF", "&H00FFFFFF", 0, 2, 1),
+        "bold-pop": ("&H0000DFFF", "&H00FFFFFF", 1, 5, 3),
+        "creator-yellow": ("&H0000FFFF", "&H00FFFFFF", 1, 5, 3),
+        "clean": ("&H00FFFFFF", "&H00FFFFFF", 0, 3, 2),
     }
     primary, secondary, bold, outline, shadow = themes[style]
-    font_size = 76 if style == "bold-pop" and aspect == "9:16" else (62 if aspect == "1:1" else 50)
+    # Large, phone-readable Shorts captions with room for the platform UI.
+    font_size = 98 if style != "clean" and aspect == "9:16" else (82 if aspect == "9:16" else 58)
     alignment = 8 if position == "top" else 2
-    margin_v = 175 if position == "top" else (300 if aspect == "9:16" else 130)
+    margin_v = 245 if position == "top" else (430 if aspect == "9:16" else 145)
     play_width, play_height = (1920, 1080) if aspect == "16:9" else (1080, 1920)
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -825,14 +824,23 @@ PlayResY: {play_height}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Noto Sans,{font_size},{primary},{secondary},&HCC000000,&H80000000,{bold},0,1,{outline},{shadow},{alignment},95,95,{margin_v},1
-Style: Callout,Noto Sans,58,&H0000FFFFFF,&H0000FFFFFF,&H00000000,&HAA183D18,1,0,3,2,1,8,90,90,230,1
-Style: EndCard,Noto Sans,82,&H0000FFFFFF,&H0000FFFFFF,&H00000000,&HAA183D18,1,0,3,3,2,5,90,90,0,1
+Style: Default,DejaVu Sans,{font_size},{primary},{secondary},1,&H99000000,1,0,1,{outline},{shadow},{alignment},65,65,{margin_v},1
+Style: PopA,DejaVu Sans,{font_size},{primary},{secondary},1,&H99000000,1,0,1,6,3,{alignment},55,55,{margin_v},1
+Style: PopB,DejaVu Sans Condensed,{int(font_size * 1.06)},&H0000DFFF,&H00FFFFFF,1,&H99000000,1,0,1,6,3,{alignment},55,55,{margin_v},1
+Style: Punch,Liberation Sans,{int(font_size * 1.10)},&H0000FFFF,&H00FFFFFF,1,&H99000000,1,0,1,7,4,{alignment},45,45,{margin_v},1
+Style: Callout,DejaVu Sans,58,&H0000FFFFFF,&H0000FFFFFF,&H00000000,&HAA183D18,1,0,3,2,1,8,90,90,230,1
+Style: EndCard,DejaVu Sans,82,&H0000FFFFFF,&H0000FFFFFF,&H00000000,&HAA183D18,1,0,3,3,2,5,90,90,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     dialogues = []
+    phrase_index = 0
+    emphasis_words = {
+        "wow", "what", "why", "no", "yes", "never", "best", "worst",
+        "crazy", "amazing", "insane", "stop", "wait", "look", "secret",
+        "important", "really", "exactly", "impossible", "finally",
+    }
     for segment in segments:
         try:
             absolute_start = float(segment.get("start", 0))
@@ -846,36 +854,39 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if end <= start or not words:
             continue
 
-        # Whisper VTT normally provides phrase-level timestamps, not true word
-        # timestamps. Allocate each phrase's duration across words, then show
-        # short 3–4 word cards rather than one long sentence across the frame.
+        # Whisper provides phrase timestamps here. Approximate word timing inside
+        # each phrase and use compact 1–3 word bursts for the vertical short format.
         duration_cs = max(len(words), int(round((end - start) * 100)))
-        weights = [max(1, len(re.sub(r"[^\w]", "", word))) for word in words]
+        weights = [max(1, len(re.sub(r"[^\\w]", "", word))) for word in words]
         total_weight = sum(weights)
         remaining_cs = duration_cs - len(words)
         word_durations = [1 + int(remaining_cs * weight / total_weight) for weight in weights]
         word_durations[-1] += duration_cs - sum(word_durations)
-
         timed_words = []
         cursor = 0
         for word, word_cs in zip(words, word_durations):
             timed_words.append((word, word_cs, cursor))
             cursor += word_cs
 
-        words_per_card = 3 if style == "bold-pop" else 4
-        for offset in range(0, len(timed_words), words_per_card):
-            chunk = timed_words[offset:offset + words_per_card]
+        for offset in range(0, len(timed_words), 2):
+            chunk = timed_words[offset:offset + 2]
             chunk_start_cs = chunk[0][2]
             chunk_end_cs = chunk[-1][2] + chunk[-1][1]
+            phrase_text = " ".join(item[0] for item in chunk)
+            is_emphasis = any(re.sub(r"[^a-z]", "", word.lower()) in emphasis_words for word, _, _ in chunk)
+            style_name = "Punch" if is_emphasis else ("PopB" if phrase_index % 2 else "PopA")
             karaoke = " ".join(f"{{\\k{word_cs}}}{word}" for word, word_cs, _ in chunk)
+            # A short entrance scale makes every caption burst feel synced to speech.
+            entrance = "{\\fscx82\\fscy82\\t(0,110,\\fscx108\\fscy108)\\t(110,170,\\fscx100\\fscy100)}"
             event_start = max(0.0, start - clip_start + chunk_start_cs / 100)
             event_end = min(clip_end - clip_start, start - clip_start + chunk_end_cs / 100)
             if event_end > event_start:
                 dialogues.append(
-                    f"Dialogue: 0,{_ass_time(event_start)},{_ass_time(event_end)},Default,,0,0,0,,{{\\q2}}{karaoke}"
+                    f"Dialogue: 0,{_ass_time(event_start)},{_ass_time(event_end)},{style_name},,0,0,0,,{entrance}{{\\q2}}{karaoke}"
                 )
+            phrase_index += 1
+
     if creator_overlays:
-        # Short transcript-led callouts add context without inventing facts.
         hook_words = {
             "why", "secret", "never", "best", "because", "important", "truth",
             "mistake", "finally", "imagine", "result", "tip", "win", "wrong",
@@ -893,11 +904,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 continue
             if not any(re.sub(r"[^a-z]", "", word.lower()) in hook_words for word in words):
                 continue
-            phrase = " ".join(_ass_escape_word(word) for word in words[:5])
-            phrase = phrase[:72].strip()
-            if not phrase:
-                continue
-            callouts.append((seg_start - clip_start, min(seg_end - clip_start, seg_start - clip_start + 1.8), phrase))
+            phrase = " ".join(_ass_escape_word(word) for word in words[:5])[:72].strip()
+            if phrase:
+                callouts.append((seg_start - clip_start, min(seg_end - clip_start, seg_start - clip_start + 1.8), phrase))
             if len(callouts) >= 4:
                 break
         for callout_start, callout_end, phrase in callouts:
@@ -910,7 +919,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             dialogues.append(
                 f"Dialogue: 2,{_ass_time(clip_duration - 2.0)},{_ass_time(clip_duration)},EndCard,,0,0,0,,{{\\fad(180,180)}}FOLLOW FOR MORE"
             )
-    destination.write_text(header + "\n".join(dialogues) + "\n", encoding="utf-8")
+    destination.write_text(header + "\\n".join(dialogues) + "\\n", encoding="utf-8")
 
 
 @app.post("/api/clips/{clip_id}/render")
