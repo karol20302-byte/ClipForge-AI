@@ -460,6 +460,9 @@ def _import_video_url_task(video_id: str, raw_url: str):
                 "restrictfilenames": True,
                 "overwrites": True,
                 "remote_components": ["ejs:github"],
+                "verbose": True,
+                "quiet": False,
+                "noprogress": True,
                 "progress_hooks": [progress_hook],
             }
             try:
