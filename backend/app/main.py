@@ -225,8 +225,8 @@ class TranscriptionRequest(BaseModel):
 
 @app.post("/api/admin/reset")
 def reset_all_data(request: ResetRequest):
-    if not API_KEY:
-        raise HTTPException(503, "Set CLIPFORGE_API_KEY before using the reset endpoint")
+    # The API middleware has already authenticated this request with Google
+    # or the private API key, so Google-only users may also clear their workspace.
     try:
         deleted = reset_persistent_data()
     except Exception as exc:
