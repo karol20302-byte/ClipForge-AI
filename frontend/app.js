@@ -442,7 +442,9 @@ async function importMediaUrl() {
         ? "YouTube did not provide a downloadable format to ClipForge. This is a source/platform restriction, not a rendering error. Upload a video file you own or have permission to edit."
         : timedOut
           ? "The import is taking too long. It may still finish in the background. You can upload a video file you own or have permission to edit instead."
-          : "The video link could not be imported. Check the URL, or upload a video file you own or have permission to edit.";
+          : (rawMessage && !/failed to fetch|networkerror|load failed/i.test(rawMessage)
+            ? "Import failed: " + rawMessage.replace(/[\\r\\n\\t]+/g, " ").slice(0, 220)
+            : "The video link could not be imported. Check the URL, or upload a video file you own or have permission to edit.");
     showExternalProgress("IMPORT NEEDS ATTENTION", friendlyMessage, "UPLOAD FILE INSTEAD");
     setStatus("#youtube-status", friendlyMessage);
     if (!progress.querySelector(".import-fallback-button")) {
