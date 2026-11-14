@@ -112,6 +112,19 @@ def restore_persistent_state():
     restored_jobs, restored_clips = load_state()
     jobs.update(restored_jobs)
     clip_candidates.update(restored_clips)
+    # Render instances can restart while a background URL import is running.
+    # Mark interrupted tasks clearly instead of leaving the browser polling forever.
+    for job in jobs.values():
+        if job.get("status") in {"queued", "downloading"}:
+            job.update(
+                status="failed",
+                error="The server restarted during this import. Please retry the URL.",
+                detail="Import interrupted by server restart.",
+            )
+            try:
+                save_job(job)
+            except Exception:
+                pass
 
 
 def local_video_path(job: dict) -> Path:
