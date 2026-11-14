@@ -697,6 +697,8 @@ async function prepareClipForPlayback(clip, player, status, placeholder) {
     });
     player.classList.add("is-ready");
     player.dataset.objectUrl = url;
+    const downloadButton = player.closest(".reel-output-card")?.querySelector(".reel-download-button");
+    if (downloadButton) downloadButton.disabled = false;
     if (placeholder) placeholder.remove();
     return true;
   } catch (error) {
