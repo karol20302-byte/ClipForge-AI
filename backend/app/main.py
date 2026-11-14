@@ -334,7 +334,19 @@ def validate_persistent_session(request: Request):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "clipforge-api", "yt_dlp_version": yt_dlp.version.__version__, "deno_available": bool(shutil.which("deno"))}
+    provider_available = False
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:4416/ping", timeout=2) as response:
+            provider_available = response.status == 200
+    except Exception:
+        pass
+    return {
+        "status": "ok",
+        "service": "clipforge-api",
+        "yt_dlp_version": yt_dlp.version.__version__,
+        "deno_available": bool(shutil.which("deno")),
+        "download_provider_available": provider_available,
+    }
 
 
 @app.post("/api/videos")
