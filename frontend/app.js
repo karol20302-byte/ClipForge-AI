@@ -1,7 +1,7 @@
 const DEFAULT_API = "https://clipforge-ai-04gj.onrender.com";
 const $ = (selector) => document.querySelector(selector);
 const savedApi = localStorage.getItem("clipforge-api");
-const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", googleCredential: "", authenticated: false, videoId: null, clips: [], youtubeImportArmed: false, autoGenerateAfterUpload: false, workflowRunning: false, renderQueueRunning: false };
+const state = { api: (!savedApi || savedApi === "https://clipforge-backend-i21j.onrender.com") ? DEFAULT_API : savedApi, apiKey: localStorage.getItem("clipforge-key") || "", sessionToken: localStorage.getItem("clipforge-session") || "", authenticated: false, videoId: null, clips: [], youtubeImportArmed: false, autoGenerateAfterUpload: false, workflowRunning: false, renderQueueRunning: false };
 
 $("#api-url").value = state.api;
 $("#api-key").value = state.apiKey;
@@ -123,6 +123,24 @@ async function initPrivateGoogleLogin() {
     if (!response.ok || !config.configured || !config.client_id) {
       throw new Error("Google sign-in is not configured on the backend yet. Add GOOGLE_CLIENT_ID and CLIPFORGE_ALLOWED_EMAIL in Render environment variables.");
     }
+    if (state.sessionToken && config.session_configured) {
+      try {
+        const saved = await fetch(state.api + "/auth/session", {
+          headers: { "Authorization": "Bearer " + state.sessionToken },
+          cache: "no-store"
+        });
+        if (saved.ok) {
+          state.authenticated = true;
+          $("#login-gate").hidden = true;
+          $("#app-shell").hidden = false;
+          status.textContent = "Signed in · saved session";
+          await prepareFreshWorkspace();
+          return;
+        }
+      } catch (_) {}
+      state.sessionToken = "";
+      localStorage.removeItem("clipforge-session");
+    }
     if (!window.google?.accounts?.id) {
       await new Promise((resolve, reject) => {
         const script = document.createElement("script");
@@ -161,14 +179,15 @@ async function handleGoogleCredential(response) {
     });
     const result = await verification.json().catch(() => ({}));
     if (!verification.ok || !result.ok) throw new Error(result.detail || "This account is not allowed to use ClipForge.");
-    state.googleCredential = response.credential;
+    state.sessionToken = result.session_token;
+    localStorage.setItem("clipforge-session", result.session_token);
     state.authenticated = true;
     $("#login-gate").hidden = true;
     $("#app-shell").hidden = false;
     status.textContent = "Signed in.";
     await prepareFreshWorkspace();
   } catch (error) {
-    state.googleCredential = "";
+    state.sessionToken = "";
     status.textContent = error.message;
     if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   }
@@ -177,7 +196,7 @@ async function handleGoogleCredential(response) {
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (state.apiKey) headers.set("X-API-Key", state.apiKey);
-  if (state.googleCredential) headers.set("Authorization", "Bearer " + state.googleCredential);
+  if (state.sessionToken) headers.set("Authorization", "Bearer " + state.sessionToken);
   const maxBusyRetries = 12;
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(state.api + path, { ...options, headers });
@@ -275,7 +294,7 @@ function uploadVideo() {
   const xhr = new XMLHttpRequest();
   xhr.open("POST", state.api + "/api/videos");
   if (state.apiKey) xhr.setRequestHeader("X-API-Key", state.apiKey);
-  if (state.googleCredential) xhr.setRequestHeader("Authorization", "Bearer " + state.googleCredential);
+  if (state.sessionToken) xhr.setRequestHeader("Authorization", "Bearer " + state.sessionToken);
   xhr.upload.addEventListener("progress", (event) => {
     if (!event.lengthComputable) return;
     const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
@@ -607,7 +626,7 @@ async function prepareClipForPlayback(clip, player, status, placeholder) {
     });
 
     const response = await fetch(state.api + "/api/clips/" + encodeURIComponent(clip.id) + "/download", {
-      headers: state.apiKey ? { "X-API-Key": state.apiKey } : {}
+      headers: { ...(state.apiKey ? { "X-API-Key": state.apiKey } : {}), ...(state.sessionToken ? { "Authorization": "Bearer " + state.sessionToken } : {}) }
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -655,5 +674,19 @@ function formatTime(seconds) {
 }
 
 
-// The editor stays hidden until the backend verifies the approved Google account.
+
+$("#sign-out").addEventListener("click", () => {
+  state.sessionToken = "";
+  state.authenticated = false;
+  state.videoId = null;
+  state.clips = [];
+  localStorage.removeItem("clipforge-session");
+  if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
+  $("#app-shell").hidden = true;
+  $("#login-gate").hidden = false;
+  $("#login-status").textContent = "Signed out. Sign in with your approved Google account to continue.";
+  toast("You have signed out of ClipForge");
+});
+
+// Restore the saved 30-day session or request Google sign-in.
 initPrivateGoogleLogin();
