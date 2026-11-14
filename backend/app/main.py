@@ -18,6 +18,9 @@ import uuid
 from pathlib import Path
 from typing import Literal
 
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2 import id_token as google_id_token
+
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -39,13 +42,13 @@ API_KEY = os.getenv("CLIPFORGE_API_KEY", "").strip()
 app = FastAPI(title="ClipForge AI API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv(
+    allow_origins=[item.strip() for item in os.getenv(
         "CLIPFORGE_ALLOWED_ORIGINS",
         "https://clipforge-ai-db2.pages.dev",
-    ).split(","),
+    ).split(",") if item.strip()],
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key", "Authorization"],
 )
 
 jobs: dict[str, dict] = {}
@@ -133,12 +136,38 @@ def local_video_path(job: dict) -> Path:
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
 
 
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+ALLOWED_GOOGLE_EMAIL = os.getenv("CLIPFORGE_ALLOWED_EMAIL", "").strip().lower()
+_google_auth_request = GoogleAuthRequest()
+
+
+def verify_google_identity(credential: str) -> dict | None:
+    """Verify a Google Identity Services ID token and enforce the single-account allowlist."""
+    if not GOOGLE_CLIENT_ID or not ALLOWED_GOOGLE_EMAIL or not credential:
+        return None
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            credential, _google_auth_request, GOOGLE_CLIENT_ID
+        )
+        email = str(claims.get("email", "")).strip().lower()
+        if claims.get("email_verified") is not True or not hmac.compare_digest(email, ALLOWED_GOOGLE_EMAIL):
+            return None
+        return {"email": email, "sub": str(claims.get("sub", ""))}
+    except Exception:
+        return None
+
+
 @app.middleware("http")
 async def protect_api_and_add_headers(request: Request, call_next):
-    if request.method != "OPTIONS" and request.url.path.startswith("/api/") and API_KEY:
+    if request.method != "OPTIONS" and request.url.path.startswith("/api/") and request.url.path != "/api/health":
         supplied_key = request.headers.get("x-api-key", "")
-        if not hmac.compare_digest(supplied_key, API_KEY):
-            return JSONResponse(status_code=401, content={"detail": "Missing or invalid API key"})
+        key_is_valid = bool(API_KEY and hmac.compare_digest(supplied_key, API_KEY))
+        authorization = request.headers.get("authorization", "")
+        bearer = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
+        if not key_is_valid and verify_google_identity(bearer) is None:
+            detail = "Google sign-in is not configured on the server" if not GOOGLE_CLIENT_ID or not ALLOWED_GOOGLE_EMAIL else "Sign in with the approved Google account to continue"
+            status = 503 if not GOOGLE_CLIENT_ID or not ALLOWED_GOOGLE_EMAIL else 401
+            return JSONResponse(status_code=status, content={"detail": detail})
     if request.method != "OPTIONS" and request.url.path.startswith("/api/") and request.url.path != "/api/health":
         try:
             now = int(time.time())
@@ -228,6 +257,23 @@ def reset_all_data(request: ResetRequest):
 def prepare_temporary_session():
     """Start a fresh browser workspace by clearing the previous temporary session."""
     return reset_all_data(ResetRequest(confirmation="RESET ALL CLIPFORGE DATA"))
+
+
+class GoogleCredentialRequest(BaseModel):
+    credential: str
+
+
+@app.get("/auth/config")
+def google_auth_config():
+    return {"configured": bool(GOOGLE_CLIENT_ID and ALLOWED_GOOGLE_EMAIL), "client_id": GOOGLE_CLIENT_ID or None}
+
+
+@app.post("/auth/verify")
+def verify_google_login(payload: GoogleCredentialRequest):
+    identity = verify_google_identity(payload.credential)
+    if identity is None:
+        raise HTTPException(401, "This Google account is not authorized for ClipForge.")
+    return {"ok": True, "email": identity["email"]}
 
 
 @app.get("/health")
