@@ -410,15 +410,17 @@ async function importMediaUrl() {
         $("#process-button").disabled = false;
         progress.classList.add("is-complete");
         showExternalProgress("DOWNLOAD COMPLETE", "Your external video is imported and ready for AI processing.", "READY TO EDIT");
-        setStatus("#upload-status", "Video imported. Ready to transcribe.");
-        setStatus("#youtube-status", "Video ready. Tap Generate clips to start transcription and highlight detection.");
-        toast("Video imported successfully");
+        setStatus("#upload-status", "Video imported. Starting the automatic Shorts workflow.");
+        setStatus("#youtube-status", "Download complete. Starting transcription, highlight detection and automatic Shorts rendering…");
+        toast("Video imported — generating Shorts");
+        runFullWorkflow();
         break;
       }
       const downloading = status.status === "downloading";
       const heading = downloading ? "DOWNLOADING EXTERNAL VIDEO" : status.status === "checking" ? "CHECKING VIDEO SOURCE" : "WAITING FOR IMPORT WORKER";
-      const message = downloading ? "Fetching video data from the external platform. This can take a while for long videos…" : status.status === "checking" ? "Validating the source and reading video details…" : "Your import is queued. ClipForge is preparing the downloader…";
-      const currentStage = downloading ? "DOWNLOADING" : status.status === "checking" ? "SOURCE CHECK" : "QUEUED";
+      const percent = Number.isFinite(Number(status.progress)) ? " " + Math.round(Number(status.progress)) + "%" : "";
+      const message = status.detail || (downloading ? "Fetching video data from the external platform. This can take a while for long videos…" : status.status === "checking" ? "Validating the source and reading video details…" : "Your import is queued. ClipForge is preparing the downloader…");
+      const currentStage = downloading ? "DOWNLOADING" + percent : status.status === "checking" ? "SOURCE CHECK" : "QUEUED";
       showExternalProgress(heading, message, currentStage);
       setStatus("#youtube-status", message);
       if (status.filename && status.filename !== "Checking video link…") {
