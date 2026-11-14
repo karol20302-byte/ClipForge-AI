@@ -559,6 +559,7 @@ function renderClips() {
   $("#clip-count").textContent = state.clips.length + (state.clips.length === 1 ? " clip" : " clips");
   const list = $("#clips-list");
   list.replaceChildren();
+  list.classList.add("clip-reel-gallery");
   if (!state.clips.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
@@ -570,24 +571,36 @@ function renderClips() {
   const jobs = [];
   state.clips.forEach((clip, index) => {
     const card = document.createElement("article");
-    card.className = "clip-card video-only-card";
+    const isTopPick = index < 4;
+    card.className = "clip-card reel-output-card " + (isTopPick ? "is-top-pick" : "is-alternate");
+    const heading = document.createElement("div");
+    heading.className = "reel-card-heading";
+    const name = document.createElement("strong");
+    name.textContent = "AI CLIPPER " + (index + 1);
+    const score = document.createElement("span");
+    score.className = "reel-card-score";
+    score.textContent = Number.isFinite(Number(clip.score)) ? Math.round(Number(clip.score)) + " PTS" : "AI PICK";
+    heading.append(name, score);
+
+    const frame = document.createElement("div");
+    frame.className = "reel-video-frame";
     const player = document.createElement("video");
-    player.className = "highlight-player auto-ready-player";
+    player.className = "highlight-player auto-ready-player reel-output-player";
     player.controls = true;
     player.playsInline = true;
-    player.preload = "auto";
-    player.setAttribute("aria-label", "Vertical clip " + (index + 1));
+    player.preload = "metadata";
+    player.setAttribute("aria-label", "AI clipper " + (index + 1));
     const placeholder = document.createElement("div");
-    placeholder.className = "clip-preparing";
-    placeholder.textContent = "✦  PREPARING VERTICAL CLIP " + String(index + 1).padStart(2, "0");
-    card.append(placeholder, player);
+    placeholder.className = "clip-preparing reel-clip-preparing";
+    placeholder.textContent = "✦ PREPARING CLIP " + String(index + 1).padStart(2, "0");
+    frame.append(player, placeholder);
+    card.append(heading, frame);
     list.append(card);
     jobs.push({ clip, player, card, index, placeholder });
   });
 
-  // One shared status keeps Step 3 clean instead of repeating messages on every card.
   const status = document.createElement("div");
-  status.className = "auto-render-status";
+  status.className = "auto-render-status reel-gallery-status";
   status.textContent = "Preparing your clips…";
   list.prepend(status);
 
@@ -597,16 +610,17 @@ function renderClips() {
   (async () => {
     try {
       for (let i = 0; i < jobs.length; i++) {
-        status.textContent = "Preparing clips… " + (i + 1) + " of " + jobs.length;
+        status.textContent = "Rendering AI CLIPPER " + (i + 1) + " of " + jobs.length + "…";
         await prepareClipForPlayback(jobs[i].clip, jobs[i].player, status, jobs[i].placeholder);
       }
-      status.remove();
+      status.textContent = "All " + jobs.length + " clips are ready";
+      status.classList.add("is-complete");
+      window.setTimeout(() => status.remove(), 2200);
     } finally {
       state.renderQueueRunning = false;
     }
   })();
 }
-
 async function prepareClipForPlayback(clip, player, status, placeholder) {
   try {
     await api("/api/clips/" + encodeURIComponent(clip.id) + "/render", {
