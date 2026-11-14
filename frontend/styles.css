@@ -820,3 +820,8 @@ footer{border-color:#40583b;color:#9aaf91}
   .clip-reel-gallery .reel-output-card{flex-basis:43vw;max-width:190px}
   .reel-card-heading strong{font-size:10px}
 }
+
+
+.reel-card-actions{display:flex;gap:8px;padding-top:9px}
+.reel-card-actions .reel-download-button{width:100%;margin:0;padding:10px 12px;font-size:10px}
+.reel-card-actions .reel-download-button:disabled{opacity:.38}
