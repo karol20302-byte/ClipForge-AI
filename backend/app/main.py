@@ -565,10 +565,10 @@ def _analyze_candidate_media(source: Path, start: float, end: float) -> dict:
     ]
     try:
         result = _run_ffmpeg(command, timeout=20, task="highlight media analysis")
-        stamps = re.findall(r"pts_time:([0-9]+(?:\\.[0-9]+)?)", result.stderr)
+        stamps = re.findall(r"pts_time:([0-9]+(?:\.[0-9]+)?)", result.stderr)
         scene_count = len(stamps)
-        rms_values = re.findall(r"RMS level dB:\\s*(-?[0-9]+(?:\\.[0-9]+)?)", result.stderr)
-        peak_values = re.findall(r"Peak level dB:\\s*(-?[0-9]+(?:\\.[0-9]+)?)", result.stderr)
+        rms_values = re.findall(r"RMS level dB:\s*(-?[0-9]+(?:\.[0-9]+)?)", result.stderr)
+        peak_values = re.findall(r"Peak level dB:\s*(-?[0-9]+(?:\.[0-9]+)?)", result.stderr)
         rms_db = float(rms_values[-1]) if rms_values else None
         peak_db = float(peak_values[-1]) if peak_values else None
         # A scene-change rate is only a visual activity cue, not object/action understanding.
