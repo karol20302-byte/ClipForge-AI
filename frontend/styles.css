@@ -825,3 +825,55 @@ footer{border-color:#40583b;color:#9aaf91}
 .reel-card-actions{display:flex;gap:8px;padding-top:9px}
 .reel-card-actions .reel-download-button{width:100%;margin:0;padding:10px 12px;font-size:10px}
 .reel-card-actions .reel-download-button:disabled{opacity:.38}
+
+
+/* StreamForge advanced source inspector — integrated, compact, mobile-first */
+.streamforge-panel{margin:18px 0;border:1px solid #343044;border-radius:18px;background:linear-gradient(145deg,#14131c,#0d0d12);overflow:hidden;color:#eee}
+.streamforge-panel>summary{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:17px 18px;cursor:pointer;list-style:none;color:#f4f0ff;font-size:12px;font-weight:700}
+.streamforge-panel>summary::-webkit-details-marker{display:none}
+.streamforge-panel>summary:after{content:"＋";color:#c8f36a;font-size:18px}
+.streamforge-panel[open]>summary:after{content:"−"}
+.streamforge-panel summary b{color:#c8f36a;letter-spacing:.12em;font:10px 'DM Mono',monospace}
+.streamforge-summary-note{color:#8e899d;font:9px 'DM Mono',monospace}
+.streamforge-content{padding:0 18px 20px;border-top:1px solid #292634}
+.streamforge-intro h2{margin:18px 0 6px;font-size:16px;color:#f4f0ff}
+.streamforge-intro p,.streamforge-footnote{color:#9993a8;font-size:11px;line-height:1.65}
+.streamforge-label{display:block;margin:18px 0 7px;color:#aaa4b8;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.streamforge-url-row{display:flex;gap:8px}
+.streamforge-url-row input,.streamforge-options input,.streamforge-options select{min-width:0;width:100%;padding:11px 12px;border:1px solid #393448;border-radius:10px;background:#09090e;color:#f5f2ff;font-size:12px;outline:none}
+.streamforge-url-row input:focus,.streamforge-options input:focus,.streamforge-options select:focus{border-color:#9c83f5}
+.streamforge-url-row button{white-space:nowrap}
+.streamforge-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:12px 0}
+.streamforge-meta span{min-width:0;padding:10px;border:1px solid #292634;border-radius:10px;background:#0b0b11}
+.streamforge-meta small{display:block;color:#777286;font:8px 'DM Mono',monospace;margin-bottom:5px}
+.streamforge-meta b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d9d2eb;font-size:10px}
+.streamforge-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.streamforge-options label{display:grid;gap:6px;color:#aaa4b8;font-size:10px}
+.streamforge-options select,.streamforge-options input{font-size:11px}
+.streamforge-flags{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0;color:#bcb6c9;font-size:10px}
+.streamforge-flags label,.streamforge-permission{display:flex;align-items:center;gap:7px}
+.streamforge-flags input,.streamforge-permission input{accent-color:#a78bfa}
+.streamforge-permission{padding:10px 12px;border:1px solid #493d28;border-radius:10px;background:#211a10;color:#e4c58d;font-size:10px}
+.streamforge-commands{display:grid;gap:10px;margin-top:14px}
+.streamforge-commands>div{min-width:0;padding:11px;border:1px solid #292634;border-radius:11px;background:#09090e}
+.streamforge-command-head,.streamforge-batch-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.streamforge-command-head b{color:#c8f36a;font-size:10px}
+.streamforge-command-head button,.streamforge-queue button{border:1px solid #3b354c;border-radius:7px;background:#1a1723;color:#d9d2eb;padding:5px 9px;font-size:9px}
+.streamforge-commands pre{margin:9px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:#a7e7bd;font:10px/1.6 'DM Mono',monospace;user-select:all}
+.streamforge-preview{margin-top:14px;padding:10px;border:1px solid #315d43;border-radius:12px;background:#0b1710}
+.streamforge-preview video{display:block;width:100%;max-height:340px;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:8px}
+.streamforge-preview p{color:#9be2b3;font-size:10px}
+.streamforge-batch-head{margin-top:18px;flex-wrap:wrap}
+.streamforge-batch-head>b{color:#eee;font-size:11px}
+.streamforge-batch-head>b span{display:inline-grid;place-items:center;min-width:22px;height:22px;margin-left:5px;border-radius:20px;background:#30264a;color:#d8c8ff;font:10px 'DM Mono',monospace}
+.streamforge-batch-head>div{display:flex;gap:6px}
+.streamforge-batch-head .button{padding:8px 10px;font-size:9px}
+.streamforge-queue{display:grid;gap:7px;margin-top:10px}
+.streamforge-queue>p{margin:0;padding:14px;border:1px dashed #393448;border-radius:10px;color:#777286;font-size:10px;text-align:center}
+.streamforge-queue-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border:1px solid #292634;border-radius:9px;background:#101017}
+.streamforge-queue-item div{min-width:0}
+.streamforge-queue-item strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e8e2f3;font-size:10px}
+.streamforge-queue-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px;color:#817b90;font:9px 'DM Mono',monospace}
+.streamforge-footnote{margin:14px 0 0}
+.streamforge-footnote code{color:#c8b7ff}
+@media(max-width:560px){.streamforge-panel>summary{align-items:flex-start;flex-wrap:wrap}.streamforge-summary-note{width:100%}.streamforge-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.streamforge-url-row{flex-direction:column}.streamforge-url-row button{width:100%}.streamforge-batch-head>div{width:100%}.streamforge-batch-head .button{flex:1}}
