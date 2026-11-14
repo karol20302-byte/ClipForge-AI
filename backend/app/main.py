@@ -857,7 +857,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         # Whisper provides phrase timestamps here. Approximate word timing inside
         # each phrase and use compact 1–3 word bursts for the vertical short format.
         duration_cs = max(len(words), int(round((end - start) * 100)))
-        weights = [max(1, len(re.sub(r"[^\\w]", "", word))) for word in words]
+        weights = [max(1, len(re.sub(r"[^\w]", "", word))) for word in words]
         total_weight = sum(weights)
         remaining_cs = duration_cs - len(words)
         word_durations = [1 + int(remaining_cs * weight / total_weight) for weight in weights]
@@ -919,7 +919,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             dialogues.append(
                 f"Dialogue: 2,{_ass_time(clip_duration - 2.0)},{_ass_time(clip_duration)},EndCard,,0,0,0,,{{\\fad(180,180)}}FOLLOW FOR MORE"
             )
-    destination.write_text(header + "\\n".join(dialogues) + "\\n", encoding="utf-8")
+    destination.write_text(header + "\n".join(dialogues) + "\n", encoding="utf-8")
 
 
 @app.post("/api/clips/{clip_id}/render")
