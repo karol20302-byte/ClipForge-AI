@@ -553,6 +553,50 @@ def transcribe(video_id: str, options: TranscriptionRequest = TranscriptionReque
     }
 
 
+def _analyze_candidate_media(source: Path, start: float, end: float) -> dict:
+    """Measure scene-change density and audio dynamics for one candidate window."""
+    duration = max(0.1, min(float(end) - float(start), 180.0))
+    command = [
+        "ffmpeg", "-hide_banner", "-ss", str(max(0.0, float(start))),
+        "-i", str(source), "-t", str(duration),
+        "-vf", "select='gt(scene,0.25)',metadata=print",
+        "-af", "astats=metadata=1:reset=0",
+        "-f", "null", "-",
+    ]
+    try:
+        result = _run_ffmpeg(command, timeout=35, task="highlight media analysis")
+        stamps = re.findall(r"pts_time:([0-9]+(?:\\.[0-9]+)?)", result.stderr)
+        scene_count = len(stamps)
+        rms_values = re.findall(r"RMS level dB:\\s*(-?[0-9]+(?:\\.[0-9]+)?)", result.stderr)
+        peak_values = re.findall(r"Peak level dB:\\s*(-?[0-9]+(?:\\.[0-9]+)?)", result.stderr)
+        rms_db = float(rms_values[-1]) if rms_values else None
+        peak_db = float(peak_values[-1]) if peak_values else None
+        # A scene-change rate is only a visual activity cue, not object/action understanding.
+        visual_score = min(100.0, (scene_count / max(duration / 12.0, 1.0)) * 55.0)
+        audio_score = None
+        if rms_db is not None and peak_db is not None and rms_db > -90 and peak_db > -90:
+            dynamic_range = max(0.0, peak_db - rms_db)
+            activity = max(0.0, min(1.0, (rms_db + 48.0) / 32.0))
+            dynamics = max(0.0, min(1.0, (dynamic_range - 5.0) / 18.0))
+            audio_score = round(100.0 * (0.6 * activity + 0.4 * dynamics), 1)
+        return {
+            "visual_scene_changes": scene_count,
+            "visual_activity_score": round(visual_score, 1),
+            "audio_rms_db": round(rms_db, 1) if rms_db is not None else None,
+            "audio_peak_db": round(peak_db, 1) if peak_db is not None else None,
+            "audio_activity_score": audio_score,
+        }
+    except Exception:
+        # Media analysis is supplementary; transcript detection still works if it fails.
+        return {
+            "visual_scene_changes": 0,
+            "visual_activity_score": None,
+            "audio_rms_db": None,
+            "audio_peak_db": None,
+            "audio_activity_score": None,
+        }
+
+
 @app.post("/api/videos/{video_id}/suggest-clips")
 def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 60, aspect: Literal["9:16", "16:9", "1:1"] = "9:16"):
     job = jobs.get(video_id)
@@ -564,6 +608,29 @@ def suggest_clips(video_id: str, min_seconds: float = 30, max_seconds: float = 6
         raise HTTPException(422, "Invalid clip duration limits")
 
     ranked, detection_method = detect_highlights(job["transcript"], min_seconds, max_seconds)
+    # Run bounded FFmpeg media analysis only on the strongest transcript candidates.
+    # This keeps CPU use predictable on the existing small Render instance.
+    try:
+        source_video = local_video_path(job)
+    except Exception as exc:
+        raise HTTPException(503, f"Could not retrieve source video for media analysis: {exc}") from exc
+    for item in ranked[:12]:
+        media = _analyze_candidate_media(source_video, item["start"], item["end"])
+        item.update(media)
+        visual = media.get("visual_activity_score")
+        audio = media.get("audio_activity_score")
+        available = [value for value in (visual, audio) if value is not None]
+        if available:
+            media_score = sum(available) / len(available)
+            item["transcript_score"] = item["score"]
+            item["score"] = round(0.60 * item["score"] + 0.40 * media_score)
+            item["reason"] = (item.get("reason", "") + "; balanced audio/visual activity signals")[:180]
+            item["detection_method"] = "transcript+audio_visual"
+    ranked.sort(key=lambda item: item["score"], reverse=True)
+    for rank, item in enumerate(ranked, start=1):
+        item["rank"] = rank
+    if any(item.get("audio_activity_score") is not None or item.get("visual_activity_score") is not None for item in ranked):
+        detection_method = "transcript+audio_visual"
     candidates = []
     for item in ranked:
         candidate_id = str(uuid.uuid4())
