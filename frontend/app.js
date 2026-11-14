@@ -430,8 +430,21 @@ async function importMediaUrl() {
     if (!completed) throw new Error("Import is taking longer than expected. It may still be running; check again shortly.");
   } catch (error) {
     progress.classList.add("is-error");
-    showExternalProgress("IMPORT NEEDS ATTENTION", error.message, "ERROR");
-    setStatus("#youtube-status", error.message);
+    const rawMessage = String(error?.message || "");
+    const extractionFailure = /player response|sign in to confirm|no downloadable formats|unable to download|requested format/i.test(rawMessage);
+    const friendlyMessage = extractionFailure
+      ? "YouTube could not provide a downloadable video to the server. Please use Choose video file instead, or try again later."
+      : "The video link could not be imported. Please check the URL or choose the video file instead.";
+    showExternalProgress("IMPORT NEEDS ATTENTION", friendlyMessage, "UPLOAD FILE INSTEAD");
+    setStatus("#youtube-status", friendlyMessage);
+    if (!progress.querySelector(".import-fallback-button")) {
+      const fallback = document.createElement("button");
+      fallback.type = "button";
+      fallback.className = "button button-secondary import-fallback-button";
+      fallback.textContent = "Choose video file instead";
+      fallback.addEventListener("click", () => $("#youtube-use-file").click());
+      progress.append(fallback);
+    }
     if (!state.videoId) $("#process-button").disabled = true;
   } finally {
     window.clearInterval(elapsedTimer);
