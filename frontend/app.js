@@ -400,7 +400,9 @@ async function importMediaUrl() {
     setStatus("#youtube-status", "External link accepted. Download progress will appear here.");
 
     let completed = false;
-    for (let attempt = 0; attempt < 900; attempt++) {
+    // Stop polling after six minutes; a stuck source must not leave the UI
+    // waiting for half an hour. The server-side task may still finish later.
+    for (let attempt = 0; attempt < 180; attempt++) {
       await new Promise(resolve => window.setTimeout(resolve, 2000));
       const status = await api("/api/videos/" + encodeURIComponent(queued.id) + "/import-status", { cache: "no-store" });
       if (status.status === "failed") throw new Error(status.error || "Video import failed.");
@@ -431,10 +433,16 @@ async function importMediaUrl() {
   } catch (error) {
     progress.classList.add("is-error");
     const rawMessage = String(error?.message || "");
+    const serverDenied = /HTTP Error 403|403: Forbidden|Forbidden|failed to extract any player response/i.test(rawMessage);
     const extractionFailure = /player response|sign in to confirm|no downloadable formats|unable to download|requested format/i.test(rawMessage);
-    const friendlyMessage = extractionFailure
-      ? "YouTube could not provide a downloadable video to the server. Please use Choose video file instead, or try again later."
-      : "The video link could not be imported. Please check the URL or choose the video file instead.";
+    const timedOut = /taking longer than expected/i.test(rawMessage);
+    const friendlyMessage = serverDenied
+      ? "YouTube denied the server's video request (HTTP 403). ClipForge is online, but this link cannot be downloaded from the server right now. Upload a video file you own or have permission to edit."
+      : extractionFailure
+        ? "YouTube did not provide a downloadable format to ClipForge. This is a source/platform restriction, not a rendering error. Upload a video file you own or have permission to edit."
+        : timedOut
+          ? "The import is taking too long. It may still finish in the background. You can upload a video file you own or have permission to edit instead."
+          : "The video link could not be imported. Check the URL, or upload a video file you own or have permission to edit.";
     showExternalProgress("IMPORT NEEDS ATTENTION", friendlyMessage, "UPLOAD FILE INSTEAD");
     setStatus("#youtube-status", friendlyMessage);
     if (!progress.querySelector(".import-fallback-button")) {
