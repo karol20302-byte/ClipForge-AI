@@ -594,30 +594,61 @@ function renderClips() {
     player.setAttribute("aria-label", "AI clipper " + (index + 1));
     const placeholder = document.createElement("div");
     placeholder.className = "clip-preparing reel-clip-preparing";
-    placeholder.textContent = "✦ PREPARING CLIP " + String(index + 1).padStart(2, "0");
+    placeholder.textContent = "✦ PREPARING SHORT " + String(index + 1).padStart(2, "0");
     frame.append(player, placeholder);
-    card.append(heading, frame);
+
+    const actions = document.createElement("div");
+    actions.className = "reel-card-actions";
+    const download = document.createElement("button");
+    download.type = "button";
+    download.className = "button button-secondary reel-download-button";
+    download.textContent = "Download Short";
+    download.disabled = true;
+    download.addEventListener("click", () => {
+      const objectUrl = player.dataset.objectUrl;
+      if (!objectUrl) return;
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = "clipforge-short-" + (index + 1) + ".mp4";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+    });
+    actions.append(download);
+    card.append(heading, frame, actions);
     list.append(card);
-    jobs.push({ clip, player, card, index, placeholder });
+    jobs.push({ clip, player, card, index, placeholder, download });
   });
 
   const status = document.createElement("div");
   status.className = "auto-render-status reel-gallery-status";
-  status.textContent = "Preparing your clips…";
+  status.textContent = "Preparing your Shorts…";
   list.prepend(status);
 
   $("#clips-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   if (state.renderQueueRunning) return;
   state.renderQueueRunning = true;
   (async () => {
+    let ready = 0;
+    let failed = 0;
     try {
       for (let i = 0; i < jobs.length; i++) {
-        status.textContent = "Rendering AI CLIPPER " + (i + 1) + " of " + jobs.length + "…";
-        await prepareClipForPlayback(jobs[i].clip, jobs[i].player, status, jobs[i].placeholder);
+        status.textContent = "Rendering SHORT " + (i + 1) + " of " + jobs.length + "…";
+        const item = jobs[i];
+        const ok = await prepareClipForPlayback(item.clip, item.player, status, item.placeholder);
+        if (ok) {
+          ready++;
+          item.download.disabled = false;
+        } else {
+          failed++;
+        }
       }
-      status.textContent = "All " + jobs.length + " clips are ready";
-      status.classList.add("is-complete");
-      window.setTimeout(() => status.remove(), 2200);
+      status.textContent = failed
+        ? ready + " Shorts ready · " + failed + " need retry"
+        : "All " + ready + " Shorts are ready to preview and download";
+      status.classList.toggle("is-error", failed > 0);
+      status.classList.toggle("is-complete", failed === 0);
+      if (failed === 0) window.setTimeout(() => status.remove(), 3500);
     } finally {
       state.renderQueueRunning = false;
     }
@@ -667,6 +698,7 @@ async function prepareClipForPlayback(clip, player, status, placeholder) {
     player.classList.add("is-ready");
     player.dataset.objectUrl = url;
     if (placeholder) placeholder.remove();
+    return true;
   } catch (error) {
     status.classList.add("is-error");
     status.textContent = "Clip preparation failed: " + error.message;
@@ -682,6 +714,7 @@ async function prepareClipForPlayback(clip, player, status, placeholder) {
       prepareClipForPlayback(clip, player, status, placeholder);
     }, { once: true });
     status.append(retry);
+    return false;
   }
 }
 function formatTime(seconds) {
